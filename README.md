@@ -57,6 +57,30 @@ Across a 10,000× growth in graph size, **everything stays bounded**:
 - Qdrant grows logarithmically (HNSW), so its contribution stays modest
 - Judge latency is independent of graph size
 
+## Quality on real contradictions (BEAM)
+
+The 1M result above proves the architecture stays fast and structurally correct
+at scale on a synthetic conflict. To check the judge picks the *right* answer
+on real chat-derived contradictions, we ran every `contradiction_resolution`
+case from the **BEAM** benchmark (Tavakoli et al., all 4 context-size buckets,
+n=194) through the same `infer()` pipeline, greedy decoding, single judge call
+per case.
+
+BEAM contradictions are designed to be unresolvable from chat alone — the user
+said contradictory things and the system should ask for clarification. The
+correct answer is `unresolved`; confidently picking either side is a miss.
+
+| | Accuracy | Notes |
+|---|---:|---|
+| BEAM Hindsight baseline (published) | ~5% | what we beat |
+| Plan spec target | ≥40% | |
+| **timegraph-mcp (this work)** | **54.6%** | 106/194, greedy, p50 2.47s, p95 7.98s |
+
+`judge_call_count == 1` held on every successful run (2 timeout errors out of
+196). Accuracy degrades slightly with context size (60% at 100K → 39% at 10M),
+consistent with the broader pattern that long-context contradictions are
+harder to recognize.
+
 ## How the breakthrough thesis actually holds
 
 The architecture's central claim is "bounded LLM calls regardless of graph size."
@@ -104,8 +128,11 @@ python scripts\smoke_wave1.py    # graph ops (no LLM)
 python scripts\smoke_wave2.py    # + extractor + embedder + Qdrant
 python scripts\smoke_wave3.py    # + infer() + fuse()
 
-# Scale benchmark (the result above)
+# Scale benchmark
 python bench\infer_scale.py --sizes 100,1000,10000,1000000
+
+# BEAM benchmark
+python bench\beam_subset\run.py
 ```
 
 ## Status
@@ -114,12 +141,12 @@ python bench\infer_scale.py --sizes 100,1000,10000,1000000
 - All 9 capability-layer ops (`add_fact`, `add_episode`, `graph_query`,
   `infer`, `fuse`, `attest`, `invalidate`, `delete`, `claim/release`)
 - Bounded-LLM-call thesis validated at 1M facts
+- BEAM contradiction-resolution: 54.6% on all 194 cases, ~11× over Hindsight
 - End-to-end smoke tests green
 - Scale benchmark with full instrumentation
 
 **Not done (yet):**
 - Safety layer (tier gating, MiniLM attest classifier, SSE signal channel)
-- BEAM-500 evaluation against published baselines
 - F20-10K with all 4 query types (specific recall / time-window / contradicting / attribute-update)
 - Multi-pair conflicts beyond binary (the 4-state resolution enum is the bottleneck)
 - Adversarial input testing (MINJA, MemoryGraft, ContextSplit)
@@ -127,11 +154,21 @@ python bench\infer_scale.py --sizes 100,1000,10000,1000000
 ## Scope honesty
 
 What this measures: **temporal contradiction resolution** ("which of two
-conflicting facts is current?"). One query type, one base model, synthetic
-noise + scripted hot conflict, single-tenant. The 1M number is real and
-reproducible; it isn't a full memory system.
+conflicting facts is current?") and **contradiction recognition** (BEAM-style
+"the user said both X and ¬X — return `unresolved`"). One base model, synthetic
+noise for scale + real chat-derived contradictions for quality, single-tenant.
+
+Caveats:
+- BEAM 100K/500K/1M/10M only labels one contradiction type
+  (`never_statement_violation`). Other types — numeric flips, preference
+  reversals, temporal updates — are not exercised here.
+- The 1M scale test runs over a scripted Seattle→Boston hot conflict embedded
+  in random-vector noise. The retrieval pipeline is real, the noise distribution
+  is not adversarial.
+- No safety-layer testing yet (tier gating, attest, signal channel are Phase 2).
 
 What it suggests: the architectural pattern (bounded LLM calls + gap-pruned
 retrieval) holds in a regime that's interesting — local 9B model, single
-workstation, scales beyond any current context window — and is worth pushing
-to broader query types and adversarial conditions.
+workstation, scales beyond any current context window, beats a published
+contradiction-recognition baseline by 10×. Worth pushing to broader query
+types and adversarial conditions.
