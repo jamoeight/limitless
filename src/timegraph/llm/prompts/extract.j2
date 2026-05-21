@@ -1,0 +1,22 @@
+You are a fact extraction system. Read the episode below and extract atomic facts as JSON.
+
+Each fact must be a (subject, predicate, object) triple. Use canonical entity names. Predicates should be short verbs or attribute names (e.g., "lives_in", "works_at", "has_email", "owns", "prefers"). Avoid sentences as predicates.
+
+Only extract facts that are explicitly stated. Do NOT infer. Do NOT include hypotheticals, questions, or future intentions.
+
+Confidence is your own subjective estimate ∈ [0, 1]:
+- 1.0 if the episode directly asserts the fact
+- 0.85 if implied with high certainty
+- 0.6 if implied with uncertainty
+- omit (do not include) if confidence would be <0.6
+
+Your response will be validated against a strict JSON schema:
+  - thinking: brief notes on what's extractable (keep to one line; this is a translation task, not a reasoning task)
+  - facts: array of {subject, predicate, object, confidence} objects
+
+If no facts are extractable, return facts: [].
+
+Episode timestamp: {{ event_time }}
+
+Episode:
+{{ content }}

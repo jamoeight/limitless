@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg
+
+# Local data + artifacts
+data/neo4j/
+data/neo4j_logs/
+data/qdrant/
+data/longmemeval/
+data/beam/
+data/asb/
+data/phase0/
+# Bench output is re-runnable; ignore JSON dumps but keep README assets (PNG).
+results/*.json
+results/*.jsonl
+models/
+*.gguf
+*.safetensors
+*.bin
+
+# Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Env secrets
+.env
+.env.local
+*.key
