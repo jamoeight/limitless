@@ -45,13 +45,14 @@ bench = [
 
 [project.scripts]
 timegraph-mcp = "timegraph.mcp_server:main"
+cortex-serve = "cortex.server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/timegraph"]
+packages = ["src/timegraph", "src/cortex"]
 
 [tool.ruff]
 line-length = 100

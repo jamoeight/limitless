@@ -1,0 +1,71 @@
+"""Cortex runtime configuration.
+
+Reuses the `TG_` prefix is intentionally avoided — Cortex settings use the
+`CORTEX_` prefix so the two configs can co-exist in one `.env` file without
+collisions. The timegraph layer continues to read its own `Settings()`; the
+proxy reads `CortexSettings()`.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class CortexSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="CORTEX_", extra="ignore")
+
+    # --- Server ---
+    host: str = Field("127.0.0.1")
+    port: int = Field(8080)
+    log_level: str = Field("info")
+
+    # --- Upstream providers ---
+    anthropic_base_url: str = Field("https://api.anthropic.com")
+    anthropic_version: str = Field("2023-06-01")
+    openai_base_url: str = Field("https://api.openai.com")
+    # Routes unknown model names to one of the registered providers. Useful
+    # when the upstream is LM Studio or another OpenAI-compatible local model
+    # server — set CORTEX_DEFAULT_PROVIDER=openai and CORTEX_OPENAI_BASE_URL
+    # to the local /v1.
+    default_provider: Literal["anthropic", "openai"] = Field("anthropic")
+
+    upstream_timeout_s: float = Field(300.0, description="Long generations need headroom")
+    upstream_connect_timeout_s: float = Field(10.0)
+
+    # --- Auth mode ---
+    # byo_key: client sends provider key, we forward verbatim; group_id derived from key hash.
+    # tenant_key: client sends a Cortex-issued key; we look up provider keys server-side.
+    # hybrid: try tenant_key lookup first; fall back to byo_key passthrough.
+    auth_mode: Literal["byo_key", "tenant_key", "hybrid"] = Field("byo_key")
+
+    # When True, the proxy includes its own diagnostic events as a sidechannel
+    # (`event: cortex.notice` on Anthropic, synthetic deltas on OpenAI).
+    emit_cortex_notices: bool = Field(True)
+
+    # --- Virtualization knobs (used in MVP-3+) ---
+    last_k_spans: int = Field(4, description="Most recent K message spans kept verbatim")
+    verbatim_budget_pct: float = Field(0.25)
+    recall_budget_pct: float = Field(0.50)
+    pinned_budget_pct: float = Field(0.15)
+    speculative_budget_pct: float = Field(0.10)
+    safety_margin_tokens: int = Field(1024, description="Headroom subtracted from upstream context limit")
+
+    # --- Ingest (used in MVP-2+) ---
+    ingest_max_concurrent: int = Field(4, description="Per-session inflight ingest cap")
+    hash_cache_max_entries: int = Field(10_000, description="LRU bound for span-hash → episode mapping")
+    ingest_min_chars: int = Field(20, description="Skip ingest for spans smaller than this")
+
+    # --- Feature flags ---
+    # MVP-2 turns on auto-ingest by default — the proxy's defining behavior.
+    # MVP-3 will flip virtualization on; MVP-6 turns on tool-aware ingest.
+    enable_auto_ingest: bool = Field(True)
+    enable_virtualization: bool = Field(False)
+    enable_tool_aware_ingest: bool = Field(False)
+
+
+def get_cortex_settings() -> CortexSettings:
+    """Cache-friendly settings accessor."""
+    return CortexSettings()
