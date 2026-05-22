@@ -52,6 +52,14 @@ class CortexSettings(BaseSettings):
     pinned_budget_pct: float = Field(0.15)
     speculative_budget_pct: float = Field(0.10)
     safety_margin_tokens: int = Field(1024, description="Headroom subtracted from upstream context limit")
+    # When set, overrides the built-in model→context-window table in
+    # virtualize.context_limit_for(). Required when targeting LM Studio /
+    # local-model setups whose effective context is determined by the
+    # operator's loaded-model config, not the model family name.
+    upstream_context_limit: int | None = Field(
+        None,
+        description="Override the upstream context window in tokens (use when the model's loaded ctx differs from its native max)",
+    )
 
     # --- Ingest (used in MVP-2+) ---
     ingest_max_concurrent: int = Field(4, description="Per-session inflight ingest cap")

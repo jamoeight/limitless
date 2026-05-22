@@ -269,6 +269,7 @@ async def _handle_messages(request: Request, *, ingress: str) -> Any:
             cortex_req,
             settings,
             recall_fn=recall_fn,
+            context_limit=settings.upstream_context_limit,
             tools_serialized=tools_serialized,
         )
 
