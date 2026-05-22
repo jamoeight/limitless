@@ -409,6 +409,44 @@ def test_parse_openai_stream_recovers_tool_calls_from_reasoning_content() -> Non
     assert md.stop_reason == "tool_use"
 
 
+def test_qwen3_extractor_coerces_numeric_params() -> None:
+    """Parameter values that look like int/float/bool/null must coerce.
+    opencode's tool schemas validate `type: number` and reject stringly-typed
+    values, putting the model into a retry loop when it asks for limit=100.
+    """
+    from cortex.translate.openai import _extract_qwen3_tool_calls
+    text = """
+    <tool_call>
+    <function=read>
+    <parameter=filePath>
+    C:\\foo.py
+    </parameter>
+    <parameter=limit>
+    100
+    </parameter>
+    <parameter=offset>
+    0
+    </parameter>
+    <parameter=cached>
+    true
+    </parameter>
+    <parameter=tag>
+    null
+    </parameter>
+    </function>
+    </tool_call>
+    """
+    calls = _extract_qwen3_tool_calls(text)
+    assert len(calls) == 1
+    name, args = calls[0]
+    assert name == "read"
+    assert args["filePath"] == "C:\\foo.py"
+    assert args["limit"] == 100 and isinstance(args["limit"], int)
+    assert args["offset"] == 0 and isinstance(args["offset"], int)
+    assert args["cached"] is True
+    assert args["tag"] is None
+
+
 def test_parse_openai_stream_skips_recovery_when_real_tool_calls_present() -> None:
     """If the upstream already extracted tool_calls properly, we must not
     double-emit from the reasoning buffer.

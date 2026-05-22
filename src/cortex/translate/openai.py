@@ -573,12 +573,41 @@ _FUNCTION_RE = _re.compile(r"<function=(\w+)>\s*(.*?)\s*</function>", _re.DOTALL
 _PARAMETER_RE = _re.compile(r"<parameter=(\w+)>\s*(.*?)\s*</parameter>", _re.DOTALL)
 
 
+def _coerce_param_value(raw: str) -> Any:
+    """Convert a stringified parameter value to the most likely primitive.
+
+    The Qwen3 XML format only carries strings, but downstream tools
+    (opencode's `read.limit`, etc.) validate against JSON schemas with
+    `type: number` / `boolean`, and ai-sdk rejects a string where a number
+    is required. Best-effort: int → float → bool → string.
+    """
+    s = raw.strip()
+    if not s:
+        return s
+    if s in ("true", "True"):
+        return True
+    if s in ("false", "False"):
+        return False
+    if s in ("null", "None"):
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    return raw  # preserve original whitespace if it wasn't a primitive
+
+
 def _extract_qwen3_tool_calls(text: str) -> list[tuple[str, dict[str, Any]]]:
     """Parse Qwen3 <tool_call> XML blocks from raw model output.
 
-    Returns a list of (function_name, args_dict). Parameter values are kept
-    as strings — typing is the upstream tool's job, and the consumers we
-    target (opencode, Claude Desktop) accept stringly-typed args fine.
+    Returns a list of (function_name, args_dict). Parameter values are
+    coerced to int / float / bool / null when they parse cleanly, otherwise
+    kept as strings — opencode's tool schemas validate numeric params and
+    reject stringly-typed ones, putting the model in a retry loop.
     """
     out: list[tuple[str, dict[str, Any]]] = []
     for block in _TOOL_CALL_BLOCK_RE.findall(text):
@@ -589,7 +618,7 @@ def _extract_qwen3_tool_calls(text: str) -> list[tuple[str, dict[str, Any]]]:
         body = fn_match.group(2)
         args: dict[str, Any] = {}
         for pname, pvalue in _PARAMETER_RE.findall(body):
-            args[pname] = pvalue
+            args[pname] = _coerce_param_value(pvalue)
         out.append((name, args))
     return out
 
