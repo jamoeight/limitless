@@ -299,6 +299,99 @@ def test_parse_openai_stream_with_tool_call() -> None:
     assert md.stop_reason == "tool_use"
 
 
+def test_parse_openai_stream_drops_whitespace_content_between_tool_calls() -> None:
+    """LM Studio's qwen3 chat template extracts <tool_call> XML blocks but
+    emits the inter-block whitespace ("\n", " ") as `content` deltas. If we
+    pass that through, opencode's ai-sdk parser treats it as "model has
+    resumed writing text" and discards every tool_call after the first —
+    ending the agent loop after one tool. Drop whitespace-only content once
+    any tool_call has begun.
+    """
+    state = new_openai_stream_state()
+    chunks: list = []
+    chunks += parse_openai_stream_chunk(state, {
+        "id": "x", "object": "chat.completion.chunk", "created": 1, "model": "qwen",
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": None}],
+    })
+    # Pre-tool meaningful content passes through.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"content": "Let me read these files:"}, "finish_reason": None}]
+    })
+    # tool_call 0 starts.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"tool_calls": [{
+            "index": 0, "id": "c0", "type": "function",
+            "function": {"name": "read", "arguments": '{"f":"a"}'},
+        }]}, "finish_reason": None}]
+    })
+    # Inter-tool-call whitespace from LM Studio — must be dropped.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"content": "\n"}, "finish_reason": None}]
+    })
+    # tool_call 1 starts.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"tool_calls": [{
+            "index": 1, "id": "c1", "type": "function",
+            "function": {"name": "read", "arguments": '{"f":"b"}'},
+        }]}, "finish_reason": None}]
+    })
+    # More whitespace, more dropping.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"content": "  \n  "}, "finish_reason": None}]
+    })
+    # tool_call 2 starts.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"tool_calls": [{
+            "index": 2, "id": "c2", "type": "function",
+            "function": {"name": "read", "arguments": '{"f":"c"}'},
+        }]}, "finish_reason": None}]
+    })
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+    })
+
+    # All 3 tool_calls survive intact.
+    tool_block_starts = [
+        c for c in chunks
+        if isinstance(c, ChunkContentBlockStart) and isinstance(c.block, ToolUseBlock)
+    ]
+    assert [b.block.tool_use_id for b in tool_block_starts] == ["c0", "c1", "c2"]
+
+    # Only the pre-tool text delta was emitted; the post-tool whitespace was dropped.
+    text_deltas = [c for c in chunks if isinstance(c, ChunkTextDelta)]
+    assert len(text_deltas) == 1
+    assert text_deltas[0].text == "Let me read these files:"
+
+
+def test_parse_openai_stream_preserves_meaningful_content_after_tool_call() -> None:
+    """Non-whitespace content after a tool_call is still passed through — we
+    only suppress pure-whitespace noise. Some models legitimately emit text
+    after tool_calls; don't drop that.
+    """
+    state = new_openai_stream_state()
+    chunks: list = []
+    chunks += parse_openai_stream_chunk(state, {
+        "id": "x", "object": "chat.completion.chunk", "created": 1, "model": "qwen",
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": None}],
+    })
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"tool_calls": [{
+            "index": 0, "id": "c0", "type": "function",
+            "function": {"name": "read", "arguments": '{"f":"a"}'},
+        }]}, "finish_reason": None}]
+    })
+    # Real text post-tool: must survive.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"content": "now reading file a"}, "finish_reason": None}]
+    })
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+    })
+
+    text_deltas = [c for c in chunks if isinstance(c, ChunkTextDelta)]
+    assert any(d.text == "now reading file a" for d in text_deltas)
+
+
 # ---------- streaming: Canonical → OpenAI ----------
 
 

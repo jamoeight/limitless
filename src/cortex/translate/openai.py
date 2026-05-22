@@ -401,6 +401,12 @@ class _OpenAIStreamState:
         # openai tc index → {block_idx, name, id, sent_start}
         self.tool_state: dict[int, dict[str, Any]] = {}
         self.next_block_idx = 0
+        # True once any tool_call delta has been observed. Used to suppress
+        # whitespace-only content deltas that LM Studio's qwen3 chat template
+        # emits between extracted tool_calls — opencode's ai-sdk parser sees
+        # that whitespace as "model has resumed text generation" and discards
+        # all subsequent tool_calls, ending the agent loop after one tool.
+        self.tool_call_seen = False
 
     def _allocate_block_index(self) -> int:
         idx = self.next_block_idx
@@ -435,16 +441,21 @@ class _OpenAIStreamState:
 
         # Text content delta
         if "content" in delta and delta["content"]:
-            if not self.text_open:
-                self.text_block_idx = self._allocate_block_index()
-                self.text_open = True
-                yield ChunkContentBlockStart(
-                    index=self.text_block_idx, block=TextBlock(text="")
-                )
-            yield ChunkTextDelta(index=self.text_block_idx, text=delta["content"])
+            content_text = delta["content"]
+            # Drop whitespace-only content that arrives after the first
+            # tool_call started. See `tool_call_seen` field comment for why.
+            if not (self.tool_call_seen and content_text.strip() == ""):
+                if not self.text_open:
+                    self.text_block_idx = self._allocate_block_index()
+                    self.text_open = True
+                    yield ChunkContentBlockStart(
+                        index=self.text_block_idx, block=TextBlock(text="")
+                    )
+                yield ChunkTextDelta(index=self.text_block_idx, text=content_text)
 
         # Tool-call deltas
         for tc_delta in delta.get("tool_calls", []) or []:
+            self.tool_call_seen = True
             tc_idx = tc_delta.get("index", 0)
             state = self.tool_state.get(tc_idx)
             if state is None:
