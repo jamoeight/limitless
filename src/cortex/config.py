@@ -64,6 +64,22 @@ class CortexSettings(BaseSettings):
         2000,
         description="Per-message char cap when summarizing cold history. Higher preserves more verbatim content (needed for retrieval tasks); lower yields more compact recaps.",
     )
+    verbatim_recall_k: int = Field(
+        16,
+        description="Top-K cold atomic-groups injected verbatim into the recap. Higher = more chance of catching the needle on multi-needle retrieval tasks; lower = tighter recap budget.",
+    )
+    verbatim_recall_budget_pct: float = Field(
+        0.70,
+        description="Fraction of the post-verbatim-window recap budget reserved for verbatim-retrieved cold groups. Cold-summary takes a slice of the remainder; graph recall takes the rest.",
+    )
+    enable_verbatim_recall: bool = Field(
+        True,
+        description="Enable inline embedding-based verbatim recall of cold messages. Falls back to cold-summary on any failure.",
+    )
+    enable_query_reformulation: bool = Field(
+        True,
+        description="When True, makes one extra LM Studio call to rewrite the user's query as a topical retrieval phrase before embedding. Costs ~5s; doubles recall on meta-queries like 'Prepend X to the 2nd Y about Z'.",
+    )
 
     # --- Ingest (used in MVP-2+) ---
     ingest_max_concurrent: int = Field(4, description="Per-session inflight ingest cap")

@@ -42,8 +42,25 @@ log = structlog.get_logger(__name__)
 # (query, group_id, token_budget) -> recap text. May return "" if no recall available.
 RecallFn = Callable[[str, str, int], Awaitable[str]]
 
+# (query, cold_groups, k, token_budget) -> verbatim recap text. May return "".
+# Distinct from RecallFn because it ranks IN-MEMORY cold groups (no Qdrant
+# round-trip), so it works on single-shot huge-history requests where
+# fire-and-forget ingest hasn't finished by the time we virtualize.
+VerbatimRecallFn = Callable[
+    [str, list[list["CortexMessage"]], int, int], Awaitable[str]
+]
+
 
 async def _noop_recall(query: str, group_id: str, token_budget: int) -> str:
+    return ""
+
+
+async def _noop_verbatim_recall(
+    query: str,
+    cold_groups: list[list[CortexMessage]],
+    k: int,
+    token_budget: int,
+) -> str:
     return ""
 
 
@@ -191,9 +208,28 @@ def last_user_query(messages: list[CortexMessage]) -> str:
     return ""
 
 
-def assemble_recap(cold_summary: str, recall_text: str) -> str:
-    """Build the recap block injected after the system prompt."""
+def assemble_recap(
+    cold_summary: str,
+    recall_text: str,
+    retrieved_history: str = "",
+) -> str:
+    """Build the recap block injected after the system prompt.
+
+    Sections (in priority order — most useful for verbatim retrieval first):
+      - retrieved_history : top-K cold turns reproduced VERBATIM (with turn
+        numbers + roles). Targeted: only the turns most semantically similar
+        to the user's current query.
+      - cold_summary      : bulleted one-line-per-turn summary of EVERY cold
+        turn. Untargeted but exhaustive. Fallback when retrieved_history is
+        empty or as a complement when budget permits.
+      - recall_text       : extracted graph facts (subject/predicate/object).
+    """
     sections: list[str] = []
+    if retrieved_history:
+        sections.append(
+            "Relevant verbatim turns from earlier in this conversation:\n"
+            + retrieved_history.strip()
+        )
     if cold_summary:
         sections.append("Older conversation context (summarized):\n" + cold_summary)
     if recall_text:
@@ -248,6 +284,7 @@ async def virtualize(
     settings: CortexSettings,
     *,
     recall_fn: RecallFn | None = None,
+    verbatim_recall_fn: VerbatimRecallFn | None = None,
     context_limit: int | None = None,
     tools_serialized: list[dict[str, Any]] | None = None,
 ) -> tuple[CortexRequest, VirtualizationReport]:
@@ -269,6 +306,7 @@ async def virtualize(
     report.original_token_estimate = messages_tokens(req.messages)
 
     fn = recall_fn or _noop_recall
+    vfn = verbatim_recall_fn or _noop_verbatim_recall
 
     # Compute budget.
     limit = context_limit if context_limit is not None else context_limit_for(req.model)
@@ -341,40 +379,73 @@ async def virtualize(
     # main reason to enable it. Recall brings in pinned facts and prior-
     # session knowledge that has nothing to do with the current conversation
     # length.
-    recall_budget = max(256, M - verbatim_t)
-    cold_budget = int(recall_budget * settings.verbatim_budget_pct) if cold_groups else 0
-    recall_only_budget = recall_budget - cold_budget
+    recap_budget = max(256, M - verbatim_t)
 
-    cold_summary = ""
-    if cold_groups:
-        cold_summary = build_cold_summary(
-            cold_groups, max_chars_per_msg=settings.cold_summary_max_chars_per_msg
-        )
-        cold_summary = _truncate_to_tokens(cold_summary, cold_budget)
+    # Split: verbatim retrieval is the most useful signal for content-faithful
+    # retrieval tasks (MRCR-style), so it gets the lion's share. Cold summary
+    # is the fallback when verbatim retrieval returns nothing.
+    vbudget = (
+        int(recap_budget * settings.verbatim_recall_budget_pct) if cold_groups else 0
+    )
+    remaining_after_verbatim = recap_budget - vbudget
+    cold_budget = (
+        int(remaining_after_verbatim * settings.verbatim_budget_pct)
+        if cold_groups else 0
+    )
+    recall_only_budget = remaining_after_verbatim - cold_budget
 
     query = last_user_query(verbatim_msgs)
     group_id = req.cortex_group_id or "default"
+
+    # 1) Verbatim inline retrieval — top-K cold groups ranked by query embedding.
+    retrieved_history = ""
+    if cold_groups and vbudget > 0:
+        try:
+            retrieved_history = await vfn(
+                query, cold_groups, settings.verbatim_recall_k, vbudget
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning("virtualize.verbatim_recall_failed", error=str(e))
+            retrieved_history = ""
+            report.notes.append(f"verbatim_recall_failed: {e}")
+
+    # 2) Cold summary. Suppressed when verbatim retrieval succeeded AND
+    # consumed most of its budget — verbatim is strictly more useful for
+    # content-faithful retrieval and the summary mostly takes up tokens.
+    # Keep cold_summary as a fallback ONLY when verbatim returned nothing.
+    cold_summary = ""
+    if cold_groups and not retrieved_history:
+        cold_summary = build_cold_summary(
+            cold_groups, max_chars_per_msg=settings.cold_summary_max_chars_per_msg
+        )
+        # When verbatim retrieval is absent, give the cold summary the full
+        # budget that would have gone to verbatim.
+        cold_summary_budget = cold_budget + vbudget
+        cold_summary = _truncate_to_tokens(cold_summary, cold_summary_budget)
+
+    # 3) Graph recall (semantic facts from prior sessions).
     try:
-        recall_text = await fn(query, group_id, recall_only_budget)
+        recall_text = await fn(query, group_id, max(256, recall_only_budget))
     except Exception as e:  # noqa: BLE001
         log.warning("virtualize.recall_failed", error=str(e))
         recall_text = ""
         report.notes.append(f"recall_failed: {e}")
 
-    # If recall AND cold-summary both produced nothing, the recap will be
-    # empty — return the original request unchanged.
-    if not cold_summary and not recall_text:
+    # If everything produced nothing, the recap will be empty — return
+    # the original request unchanged.
+    if not retrieved_history and not cold_summary and not recall_text:
         report.notes.append("no recall hits and no cold history; pass-through")
         return req, report
 
-    recap = assemble_recap(cold_summary, recall_text)
+    recap = assemble_recap(cold_summary, recall_text, retrieved_history)
     report.recap_token_estimate = approx_tokens(recap)
 
     new_system = (req.system or "") + recap if recap else req.system
     new_req = req.model_copy(update={"system": new_system, "messages": verbatim_msgs})
     report.notes.append(
         f"virtualized: kept={report.kept_message_count}/{report.original_message_count} groups; "
-        f"recap≈{report.recap_token_estimate}tok"
+        f"recap≈{report.recap_token_estimate}tok "
+        f"(verbatim_retrieved={'yes' if retrieved_history else 'no'})"
     )
     return new_req, report
 

@@ -36,7 +36,7 @@ from cortex.ingest import (
 from cortex.providers.anthropic import AnthropicProvider
 from cortex.providers.base import Provider
 from cortex.providers.openai import OpenAIProvider
-from cortex.recall import real_recall
+from cortex.recall import real_recall, recall_verbatim_inline
 from cortex.translate.anthropic import (
     chunk_to_anthropic_sse,
     from_anthropic_request,
@@ -50,7 +50,7 @@ from cortex.translate.openai import (
     openai_response_from_chunks,
     to_openai_request,
 )
-from cortex.virtualize import RecallFn, VirtualizationReport, virtualize
+from cortex.virtualize import RecallFn, VerbatimRecallFn, VirtualizationReport, virtualize
 
 log = structlog.get_logger(__name__)
 
@@ -103,6 +103,7 @@ def _build_app(
     registry: ProviderRegistry | None = None,
     session_registry: SessionRegistry | None = None,
     recall_fn: RecallFn | None = None,
+    verbatim_recall_fn: VerbatimRecallFn | None = None,
 ) -> FastAPI:
     """Construct the FastAPI app.
 
@@ -114,11 +115,15 @@ def _build_app(
             stub `ingest_fn` so they don't need Neo4j/Qdrant/LM Studio.
         recall_fn: virtualization recall function. Defaults to `real_recall`
             which calls into the timegraph in-process. Tests inject a stub.
+        verbatim_recall_fn: inline verbatim-recall function. Defaults to the
+            real `recall_verbatim_inline` which embeds cold groups against
+            the (optionally reformulated) query. Tests inject a stub.
     """
     s = settings or get_cortex_settings()
     explicit_registry = registry
     explicit_session_registry = session_registry
     explicit_recall_fn = recall_fn
+    explicit_verbatim_recall_fn = verbatim_recall_fn
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -133,6 +138,20 @@ def _build_app(
         app.state.session_registry = sr
         app.state.settings = s
         app.state.recall_fn = explicit_recall_fn or real_recall
+        if explicit_verbatim_recall_fn is not None:
+            app.state.verbatim_recall_fn = explicit_verbatim_recall_fn
+        elif s.enable_verbatim_recall:
+            async def _default_verbatim(query, cold_groups, k, token_budget):
+                return await recall_verbatim_inline(
+                    query,
+                    cold_groups,
+                    k=k,
+                    token_budget=token_budget,
+                    reformulate=s.enable_query_reformulation,
+                )
+            app.state.verbatim_recall_fn = _default_verbatim
+        else:
+            app.state.verbatim_recall_fn = None
         log.info("cortex.boot", host=s.host, port=s.port, providers=list(r._providers))
         try:
             yield
@@ -242,6 +261,9 @@ async def _handle_messages(request: Request, *, ingress: str) -> Any:
     session_registry: SessionRegistry = request.app.state.session_registry
     settings: CortexSettings = request.app.state.settings
     recall_fn: RecallFn = request.app.state.recall_fn
+    verbatim_recall_fn: VerbatimRecallFn | None = getattr(
+        request.app.state, "verbatim_recall_fn", None
+    )
     provider = registry.route_for_model(cortex_req.model, default=settings.default_provider)
 
     # Auto-ingest inbound messages (fire-and-forget). The session is keyed by
@@ -269,6 +291,7 @@ async def _handle_messages(request: Request, *, ingress: str) -> Any:
             cortex_req,
             settings,
             recall_fn=recall_fn,
+            verbatim_recall_fn=verbatim_recall_fn,
             context_limit=settings.upstream_context_limit,
             tools_serialized=tools_serialized,
         )

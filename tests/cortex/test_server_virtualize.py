@@ -72,6 +72,17 @@ async def _stub_recall(query: str, group_id: str, token_budget: int) -> str:
     )
 
 
+async def _stub_verbatim_recall(query, cold_groups, k, token_budget):
+    """Stub that returns the first cold group's text verbatim, simulating a
+    successful inline-embedding retrieval pass without needing LM Studio."""
+    if not cold_groups:
+        return ""
+    g = cold_groups[0]
+    lines = [f"[turn 0.{i} {m.role}]\n" + (m.content[0].text if m.content else "")
+             for i, m in enumerate(g)]
+    return "Verbatim retrieved (stub):\n" + "\n".join(lines)
+
+
 async def _no_ingest(content, source, group_id, session_id, event_time):
     return ""
 
@@ -81,6 +92,8 @@ def _setup_app(
     enable_virtualization: bool = True,
     last_k_spans: int = 2,
     recall_fn=_stub_recall,
+    verbatim_recall_fn=None,
+    enable_verbatim_recall: bool = False,
     # Small context limit + zero safety margin forces virtualization on the
     # synthetic conversations in this suite (each ~50 char msg → ~12 tokens).
     # 150 + 0 - 64 (max_tokens) = 86-token budget. 4 verbatim msgs ≈ 40 tokens
@@ -95,6 +108,9 @@ def _setup_app(
         last_k_spans=last_k_spans,
         upstream_context_limit=upstream_context_limit,
         safety_margin_tokens=0,
+        # Default off: this suite exercises the cold-summary + graph-recall
+        # code paths. Verbatim recall is covered by a dedicated test below.
+        enable_verbatim_recall=enable_verbatim_recall,
     )
     provider = RecordingProvider(_text_response("ok"))
     registry = ProviderRegistry()
@@ -105,6 +121,7 @@ def _setup_app(
         registry=registry,
         session_registry=session_registry,
         recall_fn=recall_fn,
+        verbatim_recall_fn=verbatim_recall_fn,
     )
     return app, provider
 
@@ -236,6 +253,82 @@ async def test_settings_off_skips_virtualization() -> None:
     assert provider.last_request is not None
     assert len(provider.last_request.messages) == 16  # unchanged
     assert provider.last_request.system == "sys"
+
+
+# ---------- Verbatim recall path ----------
+
+
+@pytest.mark.asyncio
+async def test_verbatim_recall_injects_retrieved_history_block() -> None:
+    """When verbatim_recall_fn returns content, it goes into a dedicated
+    Verbatim section and supersedes the cold-summary (which mostly wastes
+    budget once we have the exact text)."""
+    app, provider = _setup_app(
+        enable_virtualization=True,
+        last_k_spans=2,
+        enable_verbatim_recall=True,
+        verbatim_recall_fn=_stub_verbatim_recall,
+    )
+    async with _live(app) as client:
+        await client.post(
+            "/v1/messages",
+            headers={"x-api-key": "sk-x", "x-cortex-group-id": "g", "x-cortex-session-id": "s"},
+            json={
+                "model": "claude-opus-4-7",
+                "max_tokens": 64,
+                "system": "You are a careful assistant.",
+                "messages": _long_conversation(6),
+                "stream": False,
+            },
+        )
+
+    assert provider.last_request is not None
+    sys = provider.last_request.system or ""
+    # Verbatim block landed in the recap with its own header.
+    assert "Relevant verbatim turns" in sys
+    assert "Verbatim retrieved (stub)" in sys
+    # When verbatim succeeds, cold_summary is suppressed (verbatim is strictly
+    # better for content-faithful retrieval; cold_summary would burn budget
+    # without adding signal).
+    assert "Older conversation context" not in sys
+    # Original system prompt still preserved at the start.
+    assert sys.startswith("You are a careful assistant.")
+
+
+@pytest.mark.asyncio
+async def test_verbatim_recall_failure_falls_back_to_cold_summary() -> None:
+    """If verbatim_recall_fn raises, the recap still gets built — cold_summary
+    fills in as the fallback."""
+
+    async def broken_verbatim(query, cold_groups, k, token_budget):
+        raise RuntimeError("embedder backend exploded")
+
+    app, provider = _setup_app(
+        enable_virtualization=True,
+        last_k_spans=2,
+        enable_verbatim_recall=True,
+        verbatim_recall_fn=broken_verbatim,
+    )
+    async with _live(app) as client:
+        resp = await client.post(
+            "/v1/messages",
+            headers={"x-api-key": "sk-x"},
+            json={
+                "model": "claude-opus-4-7",
+                "max_tokens": 64,
+                "system": "sys",
+                "messages": _long_conversation(6),
+                "stream": False,
+            },
+        )
+
+    # Request still succeeds despite verbatim recall failing.
+    assert resp.status_code == 200
+    assert provider.last_request is not None
+    sys = provider.last_request.system or ""
+    # Verbatim section absent; cold-summary present as fallback.
+    assert "Relevant verbatim turns" not in sys
+    assert "Older conversation context" in sys
 
 
 # ---------- Recall failures don't break the request ----------
