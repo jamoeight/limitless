@@ -167,6 +167,60 @@ Two gap-based prunes fix this without any extra LLM calls:
 Combined with greedy judge decoding and inline `valid_at` dates in the conflict
 reason, the judge gets exactly the evidence it needs and nothing else.
 
+## Using from an MCP client (opencode, Claude Desktop, …)
+
+The capability ops are wrapped as an MCP server over stdio. Any MCP-compatible
+client can call them as tools.
+
+**Run the server standalone:**
+```bash
+timegraph-mcp                    # console script (after `pip install -e .`)
+# or
+python -m timegraph.mcp_server
+```
+
+**Tools exposed (5):**
+
+| Tool | What it does |
+|---|---|
+| `remember(content, source, group_id?, session_id?)` | Store text as an episode; extract structured facts. |
+| `add_fact(subject, predicate, object, event_time?, …)` | Insert a triple directly when you already know the fact. |
+| `recall(query, k=8, group_id?, budget_tokens=1024)` | Semantic search over stored episodes — top-k chunks with provenance. |
+| `query(question, group_id?)` | Ask a question; bounded-LLM-call judge resolves any conflicts. |
+| `attest(fact_id, confirmed=bool, attestation?)` | Confirm or correct a stored fact (adjusts confidence + pin). |
+
+**Wiring opencode** (or any MCP client — exact field names may differ; check your client's docs):
+
+```json
+{
+  "mcp": {
+    "timegraph": {
+      "type": "local",
+      "command": ["timegraph-mcp"],
+      "env": {
+        "TG_MCP_GROUP_ID": "my-project",
+        "TG_MCP_SESSION_ID": "session-001"
+      }
+    }
+  }
+}
+```
+
+Env vars the server reads:
+- `TG_MCP_GROUP_ID` — default `group_id` for tools that omit it (defaults to `"default"`)
+- `TG_MCP_SESSION_ID` — default `session_id` (defaults to a generated `mcp-<hex>`)
+- All `TG_*` settings from `config.py` (Neo4j URI, LM Studio URL, embedder model, etc.)
+
+Backends must be running (Neo4j 7687, Qdrant 6334, LM Studio 1234 with
+qwen3.5-9b + nomic embedder loaded). The server connects lazily on first call.
+
+**Smoke-test the wired server:**
+```bash
+python scripts/smoke_mcp.py
+```
+Spawns the server over stdio, runs a `remember → recall → query` round-trip,
+prints `ALL CHECKS PASS`.
+
 ## Stack
 
 - **Graph**: Neo4j 5.24 Community (Cypher, schema constraints, `(subject, predicate)` composite index)
