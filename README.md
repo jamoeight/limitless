@@ -189,22 +189,24 @@ python -m timegraph.mcp_server
 | `query(question, group_id?)` | Ask a question; bounded-LLM-call judge resolves any conflicts. |
 | `attest(fact_id, confirmed=bool, attestation?)` | Confirm or correct a stored fact (adjusts confidence + pin). |
 
-**Wiring opencode** (or any MCP client — exact field names may differ; check your client's docs):
+**Wiring opencode** — add this block to your `~/.config/opencode/opencode.json` under `"mcp": {}`. Opencode needs the absolute path to the console script because its process doesn't inherit your venv's PATH:
 
 ```json
 {
   "mcp": {
     "timegraph": {
       "type": "local",
-      "command": ["timegraph-mcp"],
-      "env": {
-        "TG_MCP_GROUP_ID": "my-project",
-        "TG_MCP_SESSION_ID": "session-001"
-      }
+      "command": ["/abs/path/to/.venv/Scripts/timegraph-mcp.exe"],
+      "environment": {
+        "TG_MCP_GROUP_ID": "my-project"
+      },
+      "enabled": true
     }
   }
 }
 ```
+
+Restart opencode after editing. Other MCP clients (Claude Desktop, Continue) use a similar schema but may name the key `env` or `args` — check their docs.
 
 Env vars the server reads:
 - `TG_MCP_GROUP_ID` — default `group_id` for tools that omit it (defaults to `"default"`)
