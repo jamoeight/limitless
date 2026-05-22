@@ -363,6 +363,86 @@ def test_parse_openai_stream_drops_whitespace_content_between_tool_calls() -> No
     assert text_deltas[0].text == "Let me read these files:"
 
 
+def test_parse_openai_stream_recovers_tool_calls_from_reasoning_content() -> None:
+    """When Qwen3 fails to close its <think> block before emitting <tool_call>
+    XML, LM Studio leaves the whole response in `reasoning_content` with no
+    extracted tool_calls and finish_reason='stop'. Cortex must scan the
+    reasoning buffer at stream-end and synthesize tool_use chunks so
+    downstream agents (opencode) see executable tool calls.
+    """
+    state = new_openai_stream_state()
+    chunks: list = []
+    chunks += parse_openai_stream_chunk(state, {
+        "id": "x", "object": "chat.completion.chunk", "created": 1, "model": "qwen",
+        "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+    })
+    reasoning_pieces = [
+        "Let me read three files:\n",
+        "<tool_call>\n<function=read>\n<parameter=filePath>\na.txt\n</parameter>\n</function>\n</tool_call>\n",
+        "<tool_call>\n<function=read>\n<parameter=filePath>\nb.txt\n</parameter>\n</function>\n</tool_call>\n",
+        "<tool_call>\n<function=read>\n<parameter=filePath>\nc.txt\n</parameter>\n</function>\n</tool_call>",
+    ]
+    for piece in reasoning_pieces:
+        chunks += parse_openai_stream_chunk(state, {
+            "choices": [{"index": 0, "delta": {"reasoning_content": piece}, "finish_reason": None}],
+        })
+    # Upstream reports `stop` because it never saw a tool_call in `content`.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+    })
+
+    # 3 tool_use blocks recovered, each with the right filePath.
+    tool_starts = [
+        c for c in chunks
+        if isinstance(c, ChunkContentBlockStart) and isinstance(c.block, ToolUseBlock)
+    ]
+    assert len(tool_starts) == 3
+    assert [b.block.tool_name for b in tool_starts] == ["read", "read", "read"]
+
+    # Each tool's args contain the filePath param.
+    deltas = [c for c in chunks if isinstance(c, ChunkToolUseDelta)]
+    paths = [json.loads(d.partial_input_json)["filePath"] for d in deltas]
+    assert paths == ["a.txt", "b.txt", "c.txt"]
+
+    # finish_reason is rewritten to tool_use (canonical), not end_turn.
+    md = next(c for c in chunks if isinstance(c, ChunkMessageDelta))
+    assert md.stop_reason == "tool_use"
+
+
+def test_parse_openai_stream_skips_recovery_when_real_tool_calls_present() -> None:
+    """If the upstream already extracted tool_calls properly, we must not
+    double-emit from the reasoning buffer.
+    """
+    state = new_openai_stream_state()
+    chunks: list = []
+    chunks += parse_openai_stream_chunk(state, {
+        "id": "x", "object": "chat.completion.chunk", "created": 1, "model": "qwen",
+        "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+    })
+    # Reasoning content (some duplicate XML the upstream already parsed).
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"reasoning_content": "<tool_call><function=read><parameter=filePath>a.txt</parameter></function></tool_call>"}, "finish_reason": None}],
+    })
+    # Properly extracted tool_call.
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {"tool_calls": [{
+            "index": 0, "id": "c0", "type": "function",
+            "function": {"name": "read", "arguments": '{"filePath":"a.txt"}'},
+        }]}, "finish_reason": None}],
+    })
+    chunks += parse_openai_stream_chunk(state, {
+        "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+    })
+
+    tool_starts = [
+        c for c in chunks
+        if isinstance(c, ChunkContentBlockStart) and isinstance(c.block, ToolUseBlock)
+    ]
+    # Only one — the properly-extracted one, not a duplicate from reasoning.
+    assert len(tool_starts) == 1
+    assert tool_starts[0].block.tool_use_id == "c0"
+
+
 def test_chunk_to_openai_sse_forces_tool_calls_finish_when_tool_emitted() -> None:
     """If a tool_call was emitted but upstream finishes with stop_reason=end_turn,
     cortex must still report finish_reason=tool_calls. Opencode's prompt loop

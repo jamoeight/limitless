@@ -407,6 +407,15 @@ class _OpenAIStreamState:
         # that whitespace as "model has resumed text generation" and discards
         # all subsequent tool_calls, ending the agent loop after one tool.
         self.tool_call_seen = False
+        # Accumulates `delta.reasoning_content` text (LM Studio + qwen3 emits
+        # the model's <think>...</think> block here). Normally just dropped.
+        # When the model fails to close its <think> block before emitting
+        # <tool_call> XML — a frequent qwen3 quirk — LM Studio's parser
+        # leaves the calls inside reasoning_content unparsed. We post-process
+        # at stream-end: if no tool_calls were lifted but the buffer contains
+        # complete <tool_call> blocks, we extract them and synthesize
+        # canonical tool_use chunks so opencode's agent loop continues.
+        self.reasoning_buffer: list[str] = []
 
     def _allocate_block_index(self) -> int:
         idx = self.next_block_idx
@@ -438,6 +447,13 @@ class _OpenAIStreamState:
 
         choice = choices[0]
         delta = choice.get("delta", {})
+
+        # Reasoning content (LM Studio surfaces <think>...</think> here).
+        # We buffer rather than yield — it's never shown to the model client
+        # in OpenAI's spec, and we may need to scan it at stream-end for
+        # tool_call XML the upstream parser failed to lift (see field doc).
+        if delta.get("reasoning_content"):
+            self.reasoning_buffer.append(delta["reasoning_content"])
 
         # Text content delta
         if "content" in delta and delta["content"]:
@@ -498,6 +514,34 @@ class _OpenAIStreamState:
                 yield ChunkContentBlockStop(index=state["block_idx"])
             self.tool_state.clear()
 
+            # Reasoning-content tool_call recovery. When the upstream
+            # finished with no tool_calls extracted but the reasoning buffer
+            # contains complete <tool_call> blocks, parse them out and
+            # synthesize canonical tool_use chunks. Overrides finish_reason
+            # to "tool_calls" since the assistant turn IS calling tools.
+            if not self.tool_call_seen and self.reasoning_buffer:
+                buf = "".join(self.reasoning_buffer)
+                recovered = _extract_qwen3_tool_calls(buf)
+                if recovered:
+                    for name, args in recovered:
+                        block_idx = self._allocate_block_index()
+                        call_id = f"call_{uuid.uuid4().hex[:12]}"
+                        yield ChunkContentBlockStart(
+                            index=block_idx,
+                            block=ToolUseBlock(
+                                tool_use_id=call_id,
+                                tool_name=name,
+                                tool_input={},
+                            ),
+                        )
+                        yield ChunkToolUseDelta(
+                            index=block_idx,
+                            partial_input_json=json.dumps(args, default=str),
+                        )
+                        yield ChunkContentBlockStop(index=block_idx)
+                    self.tool_call_seen = True
+                    finish_reason = "tool_calls"
+
             usage = chunk_obj.get("usage") or {}
             yield ChunkMessageDelta(
                 stop_reason=openai_to_anthropic_stop_reason(finish_reason),
@@ -510,6 +554,44 @@ def parse_openai_stream_chunk(state: _OpenAIStreamState, chunk_obj: dict[str, An
     """Convenience wrapper: feed one OpenAI SSE event payload to the state
     machine and return any canonical chunks it produces."""
     return list(state.consume(chunk_obj))
+
+
+# Qwen3 tool-call XML, as the model emits it inside <think> blocks when it
+# fails to close </think> before invoking tools:
+#   <tool_call>
+#   <function=NAME>
+#   <parameter=PARAM_NAME>
+#   PARAM_VALUE
+#   </parameter>
+#   ...
+#   </function>
+#   </tool_call>
+import re as _re  # noqa: E402
+
+_TOOL_CALL_BLOCK_RE = _re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", _re.DOTALL)
+_FUNCTION_RE = _re.compile(r"<function=(\w+)>\s*(.*?)\s*</function>", _re.DOTALL)
+_PARAMETER_RE = _re.compile(r"<parameter=(\w+)>\s*(.*?)\s*</parameter>", _re.DOTALL)
+
+
+def _extract_qwen3_tool_calls(text: str) -> list[tuple[str, dict[str, Any]]]:
+    """Parse Qwen3 <tool_call> XML blocks from raw model output.
+
+    Returns a list of (function_name, args_dict). Parameter values are kept
+    as strings — typing is the upstream tool's job, and the consumers we
+    target (opencode, Claude Desktop) accept stringly-typed args fine.
+    """
+    out: list[tuple[str, dict[str, Any]]] = []
+    for block in _TOOL_CALL_BLOCK_RE.findall(text):
+        fn_match = _FUNCTION_RE.search(block)
+        if not fn_match:
+            continue
+        name = fn_match.group(1)
+        body = fn_match.group(2)
+        args: dict[str, Any] = {}
+        for pname, pvalue in _PARAMETER_RE.findall(body):
+            args[pname] = pvalue
+        out.append((name, args))
+    return out
 
 
 def new_openai_stream_state() -> _OpenAIStreamState:
