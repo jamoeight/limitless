@@ -60,6 +60,10 @@ class CortexSettings(BaseSettings):
         None,
         description="Override the upstream context window in tokens (use when the model's loaded ctx differs from its native max)",
     )
+    cold_summary_max_chars_per_msg: int = Field(
+        2000,
+        description="Per-message char cap when summarizing cold history. Higher preserves more verbatim content (needed for retrieval tasks); lower yields more compact recaps.",
+    )
 
     # --- Ingest (used in MVP-2+) ---
     ingest_max_concurrent: int = Field(4, description="Per-session inflight ingest cap")

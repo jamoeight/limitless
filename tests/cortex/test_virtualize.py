@@ -218,8 +218,10 @@ async def test_last_k_groups_kept_verbatim() -> None:
         messages=msgs,
         system="sys",
     )
-    settings = CortexSettings(last_k_spans=3, safety_margin_tokens=128)
-    new_req, report = await virtualize(req, settings, context_limit=200_000)
+    settings = CortexSettings(last_k_spans=3, safety_margin_tokens=0)
+    # 650 - 512 - 1 (system) = 137-token budget. 16 msgs = 144 tokens
+    # (overflows → trims); 6 verbatim msgs ≈ 54 tokens (fits).
+    new_req, report = await virtualize(req, settings, context_limit=650)
 
     # 3 groups × 2 messages = 6 kept verbatim.
     assert report.kept_message_count == 6
@@ -244,13 +246,15 @@ async def test_system_prompt_is_only_appended_never_replaced() -> None:
         messages=msgs,
         system=original_system,
     )
-    settings = CortexSettings(last_k_spans=2, safety_margin_tokens=128)
+    settings = CortexSettings(last_k_spans=2, safety_margin_tokens=0)
 
     async def fake_recall(query, group_id, budget):
         return "(- alice likes coffee)\n(- bob lives in seattle)"
 
+    # 400 - 256 - ~13 (system) = 131-token budget. 12 msgs ≈ 150 tokens
+    # (overflows → virtualizes); 4 verbatim msgs ≈ 50 tokens (fits).
     new_req, report = await virtualize(
-        req, settings, recall_fn=fake_recall, context_limit=200_000
+        req, settings, recall_fn=fake_recall, context_limit=400
     )
     # System prompt starts with the original verbatim
     assert new_req.system.startswith(original_system)
@@ -379,7 +383,9 @@ async def test_virtualize_respects_caller_intent_via_settings() -> None:
         messages=msgs,
         system="sys",
     )
-    settings = CortexSettings(last_k_spans=2)
-    new_req, report = await virtualize(req, settings, context_limit=200_000)
+    settings = CortexSettings(last_k_spans=2, safety_margin_tokens=0)
+    # 180 - 128 - 1 (system) = 51-token budget; 20 short msgs ≈ 60 tokens
+    # overflows budget → virtualization kicks in.
+    new_req, report = await virtualize(req, settings, context_limit=180)
     # virtualize did its job — fewer messages kept.
     assert report.kept_message_count < len(msgs)

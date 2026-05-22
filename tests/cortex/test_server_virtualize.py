@@ -81,11 +81,20 @@ def _setup_app(
     enable_virtualization: bool = True,
     last_k_spans: int = 2,
     recall_fn=_stub_recall,
+    # Small context limit + zero safety margin forces virtualization on the
+    # synthetic conversations in this suite (each ~50 char msg → ~12 tokens).
+    # 150 + 0 - 64 (max_tokens) = 86-token budget. 4 verbatim msgs ≈ 40 tokens
+    # (fits); 12 msgs ≈ 102 tokens (overflows → trims). Real production
+    # setups use the model's true context window. The short-circuit-when-fits
+    # behavior is exercised in test_virtualize.py.
+    upstream_context_limit: int = 150,
 ):
     settings = CortexSettings(
         enable_virtualization=enable_virtualization,
         enable_auto_ingest=False,  # focus this suite on virtualize only
         last_k_spans=last_k_spans,
+        upstream_context_limit=upstream_context_limit,
+        safety_margin_tokens=0,
     )
     provider = RecordingProvider(_text_response("ok"))
     registry = ProviderRegistry()

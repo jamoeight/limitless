@@ -280,6 +280,39 @@ async def virtualize(
     if not groups:
         return req, report
 
+    # Short-circuit: if everything fits in budget, don't trim. We still run
+    # recall (cross-session memory is the main reason to enable virtualization
+    # at all) and append it as a recap, but the original messages stay verbatim.
+    # Trimming when not required was a real measured regression — the cold
+    # summary's per-message truncation destroys content the model could have
+    # used directly.
+    original_t = report.original_token_estimate
+    if original_t <= M:
+        query = last_user_query(req.messages)
+        group_id = req.cortex_group_id or "default"
+        try:
+            recall_text = await fn(query, group_id, max(256, M - original_t))
+        except Exception as e:  # noqa: BLE001
+            log.warning("virtualize.recall_failed", error=str(e))
+            recall_text = ""
+            report.notes.append(f"recall_failed: {e}")
+        report.kept_message_count = len(req.messages)
+        report.kept_token_estimate = original_t
+        if not recall_text:
+            report.notes.append(
+                f"fits naturally (orig_tokens={original_t} <= budget={M}); pass-through"
+            )
+            return req, report
+        recap = assemble_recap("", recall_text)
+        report.recap_token_estimate = approx_tokens(recap)
+        new_system = (req.system or "") + recap if recap else req.system
+        new_req = req.model_copy(update={"system": new_system})
+        report.notes.append(
+            f"fits naturally; recap-only ({report.recap_token_estimate}tok recall) added, "
+            f"all {report.kept_message_count} messages preserved"
+        )
+        return new_req, report
+
     k_groups = max(1, settings.last_k_spans)  # name is historical
     verbatim_groups = groups[-k_groups:]
     cold_groups = groups[:-k_groups] if len(groups) > k_groups else []
@@ -314,7 +347,9 @@ async def virtualize(
 
     cold_summary = ""
     if cold_groups:
-        cold_summary = build_cold_summary(cold_groups)
+        cold_summary = build_cold_summary(
+            cold_groups, max_chars_per_msg=settings.cold_summary_max_chars_per_msg
+        )
         cold_summary = _truncate_to_tokens(cold_summary, cold_budget)
 
     query = last_user_query(verbatim_msgs)
