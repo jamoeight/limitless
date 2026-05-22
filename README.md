@@ -81,6 +81,39 @@ correct answer is `unresolved`; confidently picking either side is a miss.
 consistent with the broader pattern that long-context contradictions are
 harder to recognize.
 
+## Long-context graph reasoning (GraphWalks)
+
+GraphWalks is OpenAI's published benchmark for in-context graph reasoning.
+The model receives a graph as `nodeA -> nodeB` edge-list text plus an operation
+(BFS frontier at depth D, or "find parents of node X") and must execute it.
+Frontier-model performance collapses as graphs grow past the effective context
+window.
+
+Same model on both sides (Qwen3.5-9B, greedy decoding). 50 stratified tasks
+across 5 size buckets, balanced bfs/parents. The architectural variable is the
+only thing that changes:
+
+- **Baseline** — full prompt in context (graph + question); model reasons and answers.
+- **Ours** — graph loaded into Neo4j; one LLM call parses the natural-language
+  operation into a structured op; Cypher executes it. The LLM never sees the graph.
+
+![GraphWalks: in-context degrades, external graph stays flat](results/graphwalks.png)
+
+| Bucket | Char range | ≈ tokens | Ours | Baseline overall | Baseline failure mode |
+|---|---|---:|---:|---:|---|
+| XS | <5K       | <1.3K  | **100%** | 70% | 2/10 truncated mid-answer |
+| S  | 5K–15K    | 1.3–4K | **100%** | 30% | 4/10 truncated |
+| M  | 15K–130K  | 4–32K  | **100%** | 20% | 7/10 context overflow |
+| L  | 130K–500K | 32–125K| **100%** | —   | 10/10 don't fit Qwen3.5-9B's 32K context |
+| XL | 500K–1.75M| 125–440K| **100%** | —   | 10/10 don't fit |
+
+Same model, same questions. The only thing that changes between the columns
+is whether the graph lives in the LLM's context or in the database.
+
+p50 latency: ours grows from 0.5s (XS) to 2.1s (XL, ~70K edges) — the slope
+is graph-loading cost, not query cost. Baseline runs at 27–43s where it can
+run at all, and is structurally impossible past M.
+
 ## How the breakthrough thesis actually holds
 
 The architecture's central claim is "bounded LLM calls regardless of graph size."
@@ -133,6 +166,9 @@ python bench\infer_scale.py --sizes 100,1000,10000,1000000
 
 # BEAM benchmark
 python bench\beam_subset\run.py
+
+# GraphWalks benchmark (50 rows, ~30 min on 4090)
+python bench\graphwalks\run.py --per-bucket 10 --baseline-max-chars 130000
 ```
 
 ## Status
@@ -142,6 +178,8 @@ python bench\beam_subset\run.py
   `infer`, `fuse`, `attest`, `invalidate`, `delete`, `claim/release`)
 - Bounded-LLM-call thesis validated at 1M facts
 - BEAM contradiction-resolution: 54.6% on all 194 cases, ~11× over Hindsight
+- GraphWalks: 100% on 50 stratified tasks across 5 size buckets (4K–1.75M chars);
+  baseline drops to 0% at 32K+ tokens (context overflow)
 - End-to-end smoke tests green
 - Scale benchmark with full instrumentation
 
