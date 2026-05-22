@@ -1,0 +1,228 @@
+{
+  "n_rows": 5,
+  "per_arm": {
+    "raw_9b": {
+      "n_ok": 5,
+      "n_overflow": 0,
+      "n_err": 0,
+      "strict_mean": 0.0,
+      "lenient_mean": 0.6,
+      "perfect_strict": 0.0,
+      "perfect_lenient": 0.6,
+      "hallucinations": 2,
+      "truncated_responses": 0,
+      "median_lat_ms": 138157.28099999978
+    },
+    "cortex_9b": {
+      "n_ok": 5,
+      "n_overflow": 0,
+      "n_err": 0,
+      "strict_mean": 0.0,
+      "lenient_mean": 0.14313375634599063,
+      "perfect_strict": 0.0,
+      "perfect_lenient": 0.0,
+      "hallucinations": 3,
+      "truncated_responses": 2,
+      "median_lat_ms": 96602.2462999972
+    },
+    "opus": {
+      "n_ok": 5,
+      "n_overflow": 0,
+      "n_err": 0,
+      "strict_mean": 0.8078049115230946,
+      "lenient_mean": 0.8078049115230946,
+      "perfect_strict": 0.8,
+      "perfect_lenient": 0.8,
+      "hallucinations": 1,
+      "truncated_responses": 0,
+      "median_lat_ms": 20334.27180000581
+    }
+  },
+  "per_row": [
+    {
+      "row_idx": 180,
+      "bucket": "S",
+      "n_chars": 117138,
+      "n_needles": 2,
+      "position": 59,
+      "gold_len": 3148,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 3150,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 98.52295839999715
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.16208308952603862,
+          "resp_len": 292,
+          "halluc": true,
+          "trunc": true,
+          "lat_s": 65.21010820000083
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 1.0,
+          "lenient": 1.0,
+          "resp_len": 3148,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 20.33427180000581
+        }
+      }
+    },
+    {
+      "row_idx": 331,
+      "bucket": "M",
+      "n_chars": 216764,
+      "n_needles": 2,
+      "position": 151,
+      "gold_len": 749,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 751,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 47.32701420000376
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.5436702649656526,
+          "resp_len": 292,
+          "halluc": true,
+          "trunc": true,
+          "lat_s": 41.67364419999649
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 1.0,
+          "lenient": 1.0,
+          "resp_len": 749,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 7.408302399999229
+        }
+      }
+    },
+    {
+      "row_idx": 729,
+      "bucket": "M",
+      "n_chars": 217609,
+      "n_needles": 4,
+      "position": 73,
+      "gold_len": 2271,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 2273,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 138.15728099999978
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.0,
+          "resp_len": 0,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 153.84289909999643
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 1.0,
+          "lenient": 1.0,
+          "resp_len": 2271,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 12.400459000004048
+        }
+      }
+    },
+    {
+      "row_idx": 842,
+      "bucket": "L",
+      "n_chars": 1050598,
+      "n_needles": 8,
+      "position": 119,
+      "gold_len": 2440,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.0,
+          "resp_len": 33502,
+          "halluc": true,
+          "trunc": false,
+          "lat_s": 990.6855052999964
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.0,
+          "resp_len": 2,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 167.31926490000478
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 0.9987644151565074,
+          "lenient": 0.9987644151565074,
+          "resp_len": 2436,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 20.634254199998395
+        }
+      }
+    },
+    {
+      "row_idx": 1056,
+      "bucket": "L",
+      "n_chars": 1388446,
+      "n_needles": 8,
+      "position": 325,
+      "gold_len": 3163,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.0,
+          "resp_len": 34242,
+          "halluc": true,
+          "trunc": false,
+          "lat_s": 174.51214159999654
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.009915427238261883,
+          "resp_len": 288,
+          "halluc": true,
+          "trunc": false,
+          "lat_s": 96.6022462999972
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 0.04026014245896562,
+          "lenient": 0.04026014245896562,
+          "resp_len": 3315,
+          "halluc": true,
+          "trunc": false,
+          "lat_s": 34.24191900000005
+        }
+      }
+    }
+  ]
+}

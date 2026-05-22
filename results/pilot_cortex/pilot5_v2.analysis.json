@@ -1,0 +1,191 @@
+{
+  "n_rows": 4,
+  "per_arm": {
+    "raw_9b": {
+      "n_ok": 4,
+      "n_overflow": 0,
+      "n_err": 0,
+      "strict_mean": 0.0,
+      "lenient_mean": 0.75,
+      "perfect_strict": 0.0,
+      "perfect_lenient": 0.75,
+      "hallucinations": 1,
+      "truncated_responses": 0,
+      "median_lat_ms": 127074.64959999925
+    },
+    "cortex_9b": {
+      "n_ok": 4,
+      "n_overflow": 0,
+      "n_err": 0,
+      "strict_mean": 0.0,
+      "lenient_mean": 0.6774607703281027,
+      "perfect_strict": 0.0,
+      "perfect_lenient": 0.5,
+      "hallucinations": 1,
+      "truncated_responses": 1,
+      "median_lat_ms": 148433.2499999946
+    },
+    "opus": {
+      "n_ok": 4,
+      "n_overflow": 0,
+      "n_err": 0,
+      "strict_mean": 0.7855164226355362,
+      "lenient_mean": 0.7855164226355362,
+      "perfect_strict": 0.75,
+      "perfect_lenient": 0.75,
+      "hallucinations": 0,
+      "truncated_responses": 0,
+      "median_lat_ms": 20224.07390000444
+    }
+  },
+  "per_row": [
+    {
+      "row_idx": 180,
+      "bucket": "S",
+      "n_chars": 117138,
+      "n_needles": 2,
+      "position": 59,
+      "gold_len": 3148,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 3150,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 49.42934460000106
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 3150,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 70.25471479999396
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 1.0,
+          "lenient": 1.0,
+          "resp_len": 3148,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 21.93579049999971
+        }
+      }
+    },
+    {
+      "row_idx": 331,
+      "bucket": "M",
+      "n_chars": 216764,
+      "n_needles": 2,
+      "position": 151,
+      "gold_len": 749,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 751,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 54.39667760000157
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 751,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 81.6192147000038
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 1.0,
+          "lenient": 1.0,
+          "resp_len": 749,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 7.859982000001764
+        }
+      }
+    },
+    {
+      "row_idx": 729,
+      "bucket": "M",
+      "n_chars": 217609,
+      "n_needles": 4,
+      "position": 73,
+      "gold_len": 2271,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 1.0,
+          "resp_len": 2273,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 127.07464959999925
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.7098430813124108,
+          "resp_len": 1256,
+          "halluc": false,
+          "trunc": true,
+          "lat_s": 168.44009989999904
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 1.0,
+          "lenient": 1.0,
+          "resp_len": 2271,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 12.196791700000176
+        }
+      }
+    },
+    {
+      "row_idx": 842,
+      "bucket": "L",
+      "n_chars": 1050598,
+      "n_needles": 8,
+      "position": 119,
+      "gold_len": 2440,
+      "arms": {
+        "raw_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.0,
+          "resp_len": 29401,
+          "halluc": true,
+          "trunc": false,
+          "lat_s": 137.4283471000017
+        },
+        "cortex_9b": {
+          "status": "ok",
+          "strict": 0.0,
+          "lenient": 0.0,
+          "resp_len": 32610,
+          "halluc": true,
+          "trunc": false,
+          "lat_s": 148.4332499999946
+        },
+        "opus": {
+          "status": "ok",
+          "strict": 0.14206569054214482,
+          "lenient": 0.14206569054214482,
+          "resp_len": 2634,
+          "halluc": false,
+          "trunc": false,
+          "lat_s": 20.22407390000444
+        }
+      }
+    }
+  ]
+}

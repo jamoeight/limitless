@@ -1,0 +1,48 @@
+loading MRCR shards...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  total rows: 1200
+  picked: 5; buckets: ['S', 'M', 'M', 'L', 'L']
+
+[1/5] row=  180 bkt=S chars= 117,138 needles=2 pos=59 running:
+    raw_9b    : ok           score=0.000 53.9s
+    cortex_9b : ok           score=0.000 87.1s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '114', 'x-cortex-kept-messages': '114', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 21.5s
+    row wall  : 162.4s
+[2/5] row=  331 bkt=M chars= 216,764 needles=2 pos=151 running:
+    raw_9b    : ok           score=0.000 64.2s
+    cortex_9b : ok           score=0.000 96.2s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '238', 'x-cortex-kept-messages': '238', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 8.0s
+    row wall  : 168.5s
+[3/5] row=  729 bkt=M chars= 217,609 needles=4 pos=73 running:
+    raw_9b    : ok           score=0.000 172.2s
+    cortex_9b : ok           score=0.000 155.5s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '218', 'x-cortex-kept-messages': '218', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 12.8s
+    row wall  : 340.5s
+[4/5] row=  842 bkt=L chars=1,050,598 needles=8 pos=119 running:
+    raw_9b    : ok           score=0.000 132.7s
+    cortex_9b : ok           score=0.000 35.0s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1134', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '15575'}
+    opus      : ok           score=0.146 20.7s
+    row wall  : 188.4s
+[5/5] row= 1056 bkt=L chars=1,388,446 needles=8 pos=325 running:
+    raw_9b    : ok           score=0.000 174.5s
+    cortex_9b : ok           score=0.000 49.5s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1488', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '17289'}
+    opus      : ok           score=0.072 24.6s
+    row wall  : 248.7s
+
+==========================================================================================
+arm              n      strict  perfect%     lenient  perfect%
+==========================================================================================
+raw_9b           5       0.000        0%       0.444       40%
+cortex_9b        5       0.000        0%       1.000      100%
+opus             5       0.644       60%       0.644       60%
+
+strict  = official MRCR rubric (response MUST start with random_string).
+lenient = strip leading whitespace before applying same rubric.
+
+
+saved -> results/pilot_cortex/pilot5_v3.json
