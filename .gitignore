@@ -24,6 +24,7 @@ data/beam/
 data/asb/
 data/phase0/
 data/graphwalks/
+data/mrcr/
 # Bench output is re-runnable; ignore JSON dumps but keep README assets (PNG).
 results/*.json
 results/*.jsonl

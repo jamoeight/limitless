@@ -114,6 +114,41 @@ p50 latency: ours grows from 0.5s (XS) to 2.1s (XL, ~70K edges) — the slope
 is graph-loading cost, not query cost. Baseline runs at 27–43s where it can
 run at all, and is structurally impossible past M.
 
+## Long-context multi-needle recall (MRCR)
+
+MRCR (OpenAI's Multi-Round Coreference Resolution) hides 2, 4, or 8 *identical*
+user requests in a long conversation, each followed by a different assistant
+generation, then asks the model: "Prepend `XYZ` to the Nth one of those, no
+other text." Frontier-model accuracy drops as you add needles, and as you
+push the context window. Scoring is strict: response must start with the
+random-string prefix, then SequenceMatcher ratio against the gold needle.
+
+Same architectural pattern:
+- **Baseline** — full conversation in context; model finds and reproduces the Nth needle.
+- **Ours** — build a per-conversation index keyed by user-turn content; one LLM call
+  reconstructs the needle's user-request and position; deterministic lookup returns
+  the verbatim needle. The LLM never sees the conversation.
+
+![MRCR: ours 50/50 perfect, baseline 0/50](results/mrcr.png)
+
+| Bucket | Char range | ≈ tokens | Ours mean | Ours perfect | Baseline |
+|---|---|---:|---:|---:|---:|
+| XS | 75–100K     | 19–25K  | **1.000** | 10/10 | 0.000 (format-fail: leading whitespace) |
+| S  | 100–200K    | 25–50K  | **1.000** | 10/10 | 0.000 (context overflow) |
+| M  | 200–500K    | 50–125K | **1.000** | 10/10 | 0.000 (context overflow) |
+| L  | 500K–1.5M   | 125–375K| **1.000** | 10/10 | 0.000 (context overflow) |
+| XL | 1.5M–2.5M   | 375K–615K| **1.000** | 10/10 | 0.000 (context overflow) |
+
+Per needle count: **2-needle 18/18, 4-needle 23/23, 8-needle 9/9** — accuracy
+doesn't degrade with needle count because the architecture sidesteps the
+disambiguation problem entirely (the index already groups identical user-turns
+and orders them by turn-index; position lookup is `O(1)`).
+
+p50 latency: ours ~0.5s across all buckets — almost entirely the LLM call
+that parses the query (~50–100 chars in, structured JSON out). Index build
+on a 2M-char conversation is sub-100ms. Baseline runs at ~36s where it can
+run at all (XS only); past 32K tokens it's structurally impossible.
+
 ## How the breakthrough thesis actually holds
 
 The architecture's central claim is "bounded LLM calls regardless of graph size."
@@ -169,6 +204,9 @@ python bench\beam_subset\run.py
 
 # GraphWalks benchmark (50 rows, ~30 min on 4090)
 python bench\graphwalks\run.py --per-bucket 10 --baseline-max-chars 130000
+
+# MRCR benchmark (50 rows, ~10 min on 4090)
+python bench\mrcr\run.py --per-bucket 10 --baseline-max-chars 100000
 ```
 
 ## Status
@@ -180,6 +218,8 @@ python bench\graphwalks\run.py --per-bucket 10 --baseline-max-chars 130000
 - BEAM contradiction-resolution: 54.6% on all 194 cases, ~11× over Hindsight
 - GraphWalks: 100% on 50 stratified tasks across 5 size buckets (4K–1.75M chars);
   baseline drops to 0% at 32K+ tokens (context overflow)
+- MRCR: 50/50 perfect across 5 buckets (75K–2.46M chars) and 2/4/8-needle
+  variants; baseline 0/50 under the strict random-string-prefix rubric
 - End-to-end smoke tests green
 - Scale benchmark with full instrumentation
 
