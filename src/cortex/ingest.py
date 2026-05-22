@@ -116,13 +116,21 @@ def _canonical_block(b: CortexBlock) -> dict[str, Any]:
 # ---------- Text projection ----------
 
 
-def message_to_text(message: CortexMessage) -> str:
+def message_to_text(message: CortexMessage, *, include_tool_blocks: bool = True) -> str:
     """Flatten a message into a single string for the extractor LLM.
 
     Multi-block messages (text + tool_use, etc.) are joined with structure
     markers so the extractor can still pull facts from tool calls and results.
     Images become opaque placeholders — they need a vision model to extract
     from, which the LM-Studio extractor isn't.
+
+    When `include_tool_blocks` is False, tool_use and tool_result blocks are
+    dropped entirely. The ingest path uses this to honor
+    `CortexSettings.enable_tool_aware_ingest`: tool results are typically
+    large, low-signal payloads (file contents, search hits) that flood the
+    extractor with garbage facts and waste a shared model slot. Callers that
+    need accurate token counts for the whole message (e.g. virtualization)
+    keep the default.
     """
     parts: list[str] = []
     for b in message.content:
@@ -131,12 +139,16 @@ def message_to_text(message: CortexMessage) -> str:
         elif isinstance(b, ImageBlock):
             parts.append(f"[image: {b.media_type}]")
         elif isinstance(b, ToolUseBlock):
+            if not include_tool_blocks:
+                continue
             try:
                 inp = json.dumps(b.tool_input, default=str)
             except (TypeError, ValueError):
                 inp = str(b.tool_input)
             parts.append(f"[tool_use {b.tool_name}({inp})]")
         elif isinstance(b, ToolResultBlock):
+            if not include_tool_blocks:
+                continue
             if isinstance(b.content, str):
                 payload = b.content
             else:
@@ -266,7 +278,9 @@ class Session:
         if h in self._cache:
             return None
 
-        text = message_to_text(message)
+        text = message_to_text(
+            message, include_tool_blocks=self._s.enable_tool_aware_ingest
+        )
         if len(text) < self._s.ingest_min_chars:
             return None
         if looks_like_secret(text):

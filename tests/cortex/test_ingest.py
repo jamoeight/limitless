@@ -157,6 +157,59 @@ def test_message_to_text_handles_tool_result_error() -> None:
     assert "(error)" in message_to_text(m)
 
 
+def test_message_to_text_skips_tool_blocks_when_disabled() -> None:
+    m = CortexMessage(
+        role="assistant",
+        content=[
+            TextBlock(text="reasoning text"),
+            ToolUseBlock(tool_use_id="t1", tool_name="search", tool_input={"q": "x"}),
+        ],
+    )
+    out = message_to_text(m, include_tool_blocks=False)
+    assert "reasoning text" in out
+    assert "tool_use" not in out
+    assert "search" not in out
+
+
+def test_message_to_text_tool_only_message_empty_when_disabled() -> None:
+    m = CortexMessage(
+        role="user",
+        content=[ToolResultBlock(tool_use_id="t1", content="huge payload", is_error=False)],
+    )
+    assert message_to_text(m, include_tool_blocks=False) == ""
+
+
+async def test_schedule_skips_tool_only_message_when_tool_aware_disabled() -> None:
+    """Tool-result-only messages must not trigger ingest when the flag is off.
+
+    This is the bug that flooded the LM Studio extractor with one call per
+    Glob/Read result. With tool_aware_ingest=False, message_to_text returns
+    "" → falls under ingest_min_chars → schedule() returns None.
+    """
+    s = _settings(enable_tool_aware_ingest=False, ingest_min_chars=20)
+    fn, calls = _recorder()
+    sess = Session("g", "s", s, fn)
+    m = CortexMessage(
+        role="user",
+        content=[ToolResultBlock(tool_use_id="t1", content="x" * 5000, is_error=False)],
+    )
+    assert sess.schedule(m) is None
+    assert calls == []
+
+
+async def test_schedule_ingests_tool_only_message_when_tool_aware_enabled() -> None:
+    s = _settings(enable_tool_aware_ingest=True, ingest_min_chars=20)
+    fn, calls = _recorder()
+    sess = Session("g", "s", s, fn)
+    m = CortexMessage(
+        role="user",
+        content=[ToolResultBlock(tool_use_id="t1", content="x" * 5000, is_error=False)],
+    )
+    assert sess.schedule(m) is not None
+    await sess.drain(timeout=2.0)
+    assert len(calls) == 1
+
+
 # ---------- secrets filter ----------
 
 
