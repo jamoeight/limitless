@@ -1,0 +1,213 @@
+loading MRCR shards...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+  total rows: 1200
+  per_bucket=10; picked: 30; buckets: ['S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'M', 'M', 'M', 'M', 'M', 'M', 'M', 'M', 'M', 'M', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L', 'L']
+
+[1/30] row=  180 bkt=S chars= 117,138 needles=2 pos=59 running:
+    raw_9b    : ok           score=0.000 55.1s
+    cortex_9b : ok           score=0.000 55.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '114', 'x-cortex-kept-messages': '114', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 18.5s
+    row wall  : 129.3s
+[2/30] row=  343 bkt=S chars= 176,216 needles=2 pos=35 running:
+    raw_9b    : ok           score=0.000 39.6s
+    cortex_9b : ok           score=0.000 37.4s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '178', 'x-cortex-kept-messages': '178', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 13.5s
+    row wall  : 90.6s
+[3/30] row=  107 bkt=S chars= 127,455 needles=2 pos=119 running:
+    raw_9b    : ok           score=0.000 58.5s
+    cortex_9b : ok           score=0.000 55.0s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '126', 'x-cortex-kept-messages': '126', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 13.8s
+    row wall  : 127.4s
+[4/30] row=  113 bkt=S chars= 102,708 needles=2 pos=13 running:
+    raw_9b    : ok           score=0.000 54.2s
+    cortex_9b : ok           score=0.000 51.4s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '104', 'x-cortex-kept-messages': '104', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 14.9s
+    row wall  : 120.6s
+[5/30] row=  551 bkt=S chars= 146,503 needles=4 pos=57 running:
+    raw_9b    : ok           score=0.000 80.2s
+    cortex_9b : ok           score=0.000 76.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '144', 'x-cortex-kept-messages': '144', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 14.0s
+    row wall  : 170.8s
+[6/30] row=  588 bkt=S chars= 111,842 needles=4 pos=5 running:
+    raw_9b    : ok           score=0.000 30.8s
+    cortex_9b : ok           score=0.000 27.3s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '116', 'x-cortex-kept-messages': '116', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 13.0s
+    row wall  : 71.1s
+[7/30] row=  597 bkt=S chars= 131,758 needles=4 pos=15 running:
+    raw_9b    : ok           score=0.000 53.2s
+    cortex_9b : ok           score=0.000 49.4s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '140', 'x-cortex-kept-messages': '140', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=0.999 10.0s
+    row wall  : 112.6s
+[8/30] row=  518 bkt=S chars= 127,145 needles=4 pos=51 running:
+    raw_9b    : ok           score=0.000 42.4s
+    cortex_9b : ok           score=0.000 38.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '128', 'x-cortex-kept-messages': '128', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 14.0s
+    row wall  : 95.0s
+[9/30] row=  910 bkt=S chars= 103,337 needles=8 pos=77 running:
+    raw_9b    : ok           score=0.000 68.7s
+    cortex_9b : ok           score=0.000 65.1s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '94', 'x-cortex-kept-messages': '94', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 24.5s
+    row wall  : 158.4s
+[10/30] row=  955 bkt=S chars= 113,718 needles=8 pos=27 running:
+    raw_9b    : ok           score=0.000 50.9s
+    cortex_9b : ok           score=0.000 47.4s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '138', 'x-cortex-kept-messages': '138', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 8.8s
+    row wall  : 107.1s
+[11/30] row=  331 bkt=M chars= 216,764 needles=2 pos=151 running:
+    raw_9b    : ok           score=0.000 51.9s
+    cortex_9b : ok           score=0.000 46.8s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '238', 'x-cortex-kept-messages': '238', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 8.0s
+    row wall  : 106.8s
+[12/30] row=  309 bkt=M chars= 244,871 needles=2 pos=19 running:
+    raw_9b    : ok           score=0.000 42.4s
+    cortex_9b : ok           score=0.000 34.7s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '260', 'x-cortex-kept-messages': '260', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 12.2s
+    row wall  : 89.3s
+[13/30] row=  389 bkt=M chars= 287,437 needles=2 pos=67 running:
+    raw_9b    : ok           score=0.000 89.8s
+    cortex_9b : ok           score=0.000 76.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '308', 'x-cortex-kept-messages': '308', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=0.999 19.5s
+    row wall  : 185.9s
+[14/30] row=  382 bkt=M chars= 258,555 needles=2 pos=87 running:
+    raw_9b    : ok           score=0.000 54.5s
+    cortex_9b : ok           score=0.000 45.2s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '268', 'x-cortex-kept-messages': '268', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 19.1s
+    row wall  : 118.9s
+[15/30] row=  729 bkt=M chars= 217,609 needles=4 pos=73 running:
+    raw_9b    : ok           score=0.000 68.3s
+    cortex_9b : ok           score=0.000 59.0s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '218', 'x-cortex-kept-messages': '218', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 13.0s
+    row wall  : 140.3s
+[16/30] row=  761 bkt=M chars= 216,884 needles=4 pos=151 running:
+    raw_9b    : ok           score=0.000 76.6s
+    cortex_9b : ok           score=0.000 69.7s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '234', 'x-cortex-kept-messages': '234', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=0.102 7.9s
+    row wall  : 154.2s
+[17/30] row=  796 bkt=M chars= 257,835 needles=4 pos=221 running:
+    raw_9b    : ok           score=0.000 51.2s
+    cortex_9b : ok           score=0.000 43.0s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '270', 'x-cortex-kept-messages': '270', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=0.013 20.1s
+    row wall  : 114.4s
+[18/30] row=  709 bkt=M chars= 300,497 needles=4 pos=213 running:
+    raw_9b    : ok           score=0.000 56.5s
+    cortex_9b : ok           score=0.000 44.5s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '328', 'x-cortex-kept-messages': '328', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 16.0s
+    row wall  : 117.0s
+[19/30] row= 1167 bkt=M chars= 222,503 needles=8 pos=57 running:
+    raw_9b    : ok           score=0.000 55.7s
+    cortex_9b : ok           score=0.000 48.8s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '224', 'x-cortex-kept-messages': '224', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=0.030 12.1s
+    row wall  : 116.8s
+[20/30] row= 1134 bkt=M chars= 274,948 needles=8 pos=93 running:
+    raw_9b    : ok           score=0.000 61.5s
+    cortex_9b : ok           score=0.000 53.0s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'false', 'x-cortex-original-messages': '278', 'x-cortex-kept-messages': '278', 'x-cortex-recap-tokens': '0'}
+    opus      : ok           score=1.000 17.6s
+    row wall  : 132.2s
+[21/30] row=   36 bkt=L chars= 824,964 needles=2 pos=483 running:
+    raw_9b    : ok           score=0.000 60.9s
+    cortex_9b : ok           score=0.000 17.5s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '904', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '13524'}
+    opus      : ok           score=1.000 16.8s
+    row wall  : 95.2s
+[22/30] row=  295 bkt=L chars=1,458,922 needles=2 pos=1407 running:
+    raw_9b    : ok           score=0.000 100.5s
+    cortex_9b : ok           score=0.000 8.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1626', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '1915'}
+    opus      : ok           score=1.000 9.4s
+    row wall  : 118.5s
+[23/30] row=   74 bkt=L chars= 877,073 needles=2 pos=511 running:
+    raw_9b    : ok           score=0.000 43.9s
+    cortex_9b : ok           score=0.000 50.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '970', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '7209'}
+    opus      : ok           score=0.999 15.1s
+    row wall  : 109.6s
+[24/30] row=   40 bkt=L chars= 994,532 needles=2 pos=207 running:
+    raw_9b    : ok           score=0.000 101.1s
+    cortex_9b : ok           score=0.000 15.1s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1086', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '13529'}
+    opus      : ok           score=1.000 17.8s
+    row wall  : 134.0s
+[25/30] row=  688 bkt=L chars=1,355,310 needles=4 pos=1355 running:
+    raw_9b    : ok           score=0.000 100.9s
+    cortex_9b : ok           score=0.000 23.1s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1446', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '16432'}
+    opus      : ok           score=0.993 32.9s
+    row wall  : 157.0s
+[26/30] row=  479 bkt=L chars= 728,042 needles=4 pos=351 running:
+    raw_9b    : ok           score=0.000 100.3s
+    cortex_9b : ok           score=0.000 46.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '780', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '15802'}
+    opus      : ok           score=0.041 22.8s
+    row wall  : 169.7s
+[27/30] row=  609 bkt=L chars=1,336,598 needles=4 pos=1003 running:
+    raw_9b    : ok           score=0.000 100.2s
+    cortex_9b : ok           score=0.000 44.7s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1490', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '8636'}
+    opus      : ok           score=0.094 21.3s
+    row wall  : 166.2s
+[28/30] row=  410 bkt=L chars=1,128,720 needles=4 pos=193 running:
+    raw_9b    : ok           score=0.000 100.4s
+    cortex_9b : ok           score=0.000 11.4s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1258', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '7470'}
+    opus      : ok           score=0.304 16.5s
+    row wall  : 128.3s
+[29/30] row=  842 bkt=L chars=1,050,598 needles=8 pos=119 running:
+    raw_9b    : ok           score=0.000 100.1s
+    cortex_9b : ok           score=0.000 17.8s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1134', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '15575'}
+    opus      : ok           score=0.142 22.3s
+    row wall  : 140.3s
+[30/30] row= 1056 bkt=L chars=1,388,446 needles=8 pos=325 running:
+    raw_9b    : ok           score=0.000 94.0s
+    cortex_9b : ok           score=0.000 47.6s
+                 hdrs: {'x-cortex-proxy': 'anthropic', 'x-cortex-virtualized': 'true', 'x-cortex-original-messages': '1488', 'x-cortex-kept-messages': '3', 'x-cortex-recap-tokens': '17289'}
+    opus      : ok           score=0.040 42.1s
+    row wall  : 183.8s
+
+==========================================================================================
+arm              n      strict  perfect%     lenient  perfect%
+==========================================================================================
+raw_9b          30       0.000        0%       0.669       67%
+cortex_9b       30       0.000        0%       1.000      100%
+opus            30       0.759       73%       0.759       73%
+
+strict  = official MRCR rubric (response MUST start with random_string).
+lenient = strip leading whitespace before applying same rubric.
+
+-- per-bucket lenient (the long-context test) --
+bucket arm          n     lenient  perfect%
+--------------------------------------------------
+S      raw_9b      10       1.000      100%
+S      cortex_9b   10       1.000      100%
+S      opus        10       1.000      100%
+
+M      raw_9b      10       1.000      100%
+M      cortex_9b   10       1.000      100%
+M      opus        10       0.714       70%
+
+L      raw_9b      10       0.006        0%
+L      cortex_9b   10       0.999      100%
+L      opus        10       0.561       50%
+
+
+saved -> results/pilot_cortex/scale30_v3.json
