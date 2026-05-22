@@ -146,6 +146,36 @@ def pick_rows(df: pd.DataFrame, total: int, seed: int) -> list[dict]:
     return out
 
 
+def pick_rows_per_bucket(df: pd.DataFrame, per_bucket: int, seed: int) -> list[dict]:
+    """Pick `per_bucket` rows from each of S/M/L. Balances across needle counts
+    (2/4/8) where possible — mirrors bench/mrcr/run.py's stratified sampling."""
+    rng = random.Random(seed)
+    by_bucket: dict[str, list[int]] = {b: [] for b, _, _ in BUCKETS}
+    for i, n in enumerate(df["n_chars"]):
+        by_bucket[bucket_of(int(n))].append(i)
+
+    out: list[dict] = []
+    for b in ("S", "M", "L"):
+        idxs = by_bucket[b][:]
+        rng.shuffle(idxs)
+        # Balance across needle counts: try ⌈per_bucket/3⌉ of each, then fill.
+        per_nn = max(1, (per_bucket + 2) // 3)
+        chosen: list[int] = []
+        for nn in (2, 4, 8):
+            need = [i for i in idxs if int(df.iloc[i]["n_needles"]) == nn]
+            chosen.extend(need[:per_nn])
+            if len(chosen) >= per_bucket:
+                break
+        for i in idxs:
+            if i not in chosen and len(chosen) < per_bucket:
+                chosen.append(i)
+        for i in chosen[:per_bucket]:
+            r = df.iloc[i].to_dict()
+            r["_global_idx"] = i
+            out.append(r)
+    return out
+
+
 # ---------- Arm A: raw 9B on LM Studio ----------
 
 
@@ -394,6 +424,8 @@ async def run_row(task: MrcrTask, row_meta: dict, *, run_raw: bool, run_cortex: 
 async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rows", type=int, default=5)
+    parser.add_argument("--per-bucket", type=int, default=0,
+                        help="If >0, overrides --rows: pick this many rows from each of S/M/L.")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="results/pilot_cortex/pilot.json")
     parser.add_argument("--skip-raw", action="store_true",
@@ -405,9 +437,14 @@ async def main() -> int:
     print("loading MRCR shards...", flush=True)
     df = load_dataset()
     print(f"  total rows: {len(df)}")
-    sample = pick_rows(df, args.rows, args.seed)
-    print(f"  picked: {len(sample)}; buckets: "
-          f"{[bucket_of(int(r['n_chars'])) for r in sample]}")
+    if args.per_bucket > 0:
+        sample = pick_rows_per_bucket(df, args.per_bucket, args.seed)
+        print(f"  per_bucket={args.per_bucket}; picked: {len(sample)}; "
+              f"buckets: {[bucket_of(int(r['n_chars'])) for r in sample]}")
+    else:
+        sample = pick_rows(df, args.rows, args.seed)
+        print(f"  picked: {len(sample)}; buckets: "
+              f"{[bucket_of(int(r['n_chars'])) for r in sample]}")
     print()
 
     rows: list[RowResult] = []
@@ -468,6 +505,23 @@ def summarize(rows: list[RowResult]) -> dict[str, Any]:
             "perfect_rate": (sum(s >= 0.99 for s in scores) / len(scores)) if scores else None,
             "perfect_rate_lenient": (sum(s >= 0.99 for s in scores_l) / len(scores_l)) if scores_l else None,
         }
+    # Per-bucket breakdown is the load-bearing signal — L rows are where
+    # frontier models pull away from raw 9B, and where cortex must hold up.
+    for bucket in ("S", "M", "L"):
+        bucket_rows = [r for r in rows if r.bucket == bucket]
+        if not bucket_rows:
+            continue
+        out["per_bucket"][bucket] = {}
+        for arm_name in ("raw_9b", "cortex_9b", "opus"):
+            arms = [getattr(r, arm_name) for r in bucket_rows if getattr(r, arm_name) is not None]
+            if not arms:
+                continue
+            out["per_bucket"][bucket][arm_name] = {
+                "n": len(arms),
+                "mean_score": sum(a.score for a in arms) / len(arms),
+                "mean_score_lenient": sum(a.score_lenient for a in arms) / len(arms),
+                "perfect_rate_lenient": sum(a.score_lenient >= 0.99 for a in arms) / len(arms),
+            }
     return out
 
 
@@ -500,6 +554,25 @@ def print_table(summary: dict[str, Any]) -> None:
     print("strict  = official MRCR rubric (response MUST start with random_string).")
     print("lenient = strip leading whitespace before applying same rubric.")
     print()
+
+    # Per-bucket headline if present.
+    if summary.get("per_bucket"):
+        print("-- per-bucket lenient (the long-context test) --")
+        print(f"{'bucket':<6s} {'arm':<10s} {'n':>3s}  {'lenient':>10s} {'perfect%':>9s}")
+        print("-" * 50)
+        for bucket in ("S", "M", "L"):
+            bdata = summary["per_bucket"].get(bucket)
+            if not bdata:
+                continue
+            for arm in ("raw_9b", "cortex_9b", "opus"):
+                s = bdata.get(arm)
+                if not s:
+                    continue
+                print(
+                    f"{bucket:<6s} {arm:<10s} {s['n']:>3d}  "
+                    f"{s['mean_score_lenient']:>10.3f} {s['perfect_rate_lenient']*100:>8.0f}%"
+                )
+            print()
 
 
 if __name__ == "__main__":
