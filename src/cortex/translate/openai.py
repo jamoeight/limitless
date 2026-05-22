@@ -407,6 +407,10 @@ class _OpenAIStreamState:
         # that whitespace as "model has resumed text generation" and discards
         # all subsequent tool_calls, ending the agent loop after one tool.
         self.tool_call_seen = False
+        # True once ANY text delta has been emitted in this stream. Used at
+        # stream-end to decide whether to fall back to reasoning_content as
+        # the response body (see _emit_reasoning_fallback below).
+        self.text_emitted_any = False
         # Accumulates `delta.reasoning_content` text (LM Studio + qwen3 emits
         # the model's <think>...</think> block here). Normally just dropped.
         # When the model fails to close its <think> block before emitting
@@ -415,6 +419,10 @@ class _OpenAIStreamState:
         # at stream-end: if no tool_calls were lifted but the buffer contains
         # complete <tool_call> blocks, we extract them and synthesize
         # canonical tool_use chunks so opencode's agent loop continues.
+        # Separately, if the model emitted NO text content at all (because
+        # it shoved everything into reasoning_content with no </think> close),
+        # we surface the buffer as the response text — an empty completion is
+        # always worse than a noisy one.
         self.reasoning_buffer: list[str] = []
 
     def _allocate_block_index(self) -> int:
@@ -468,6 +476,7 @@ class _OpenAIStreamState:
                         index=self.text_block_idx, block=TextBlock(text="")
                     )
                 yield ChunkTextDelta(index=self.text_block_idx, text=content_text)
+                self.text_emitted_any = True
 
         # Tool-call deltas
         for tc_delta in delta.get("tool_calls", []) or []:
@@ -541,6 +550,36 @@ class _OpenAIStreamState:
                         yield ChunkContentBlockStop(index=block_idx)
                     self.tool_call_seen = True
                     finish_reason = "tool_calls"
+
+            # Reasoning-content text fallback. If the model emitted NO text
+            # AND NO tool_calls (recovered or otherwise), the assistant turn
+            # is empty — but reasoning_buffer may hold the actual answer
+            # because LM Studio routed everything there when the model didn't
+            # close </think>. Surface the buffer (or just its post-</think>
+            # tail, when present) as a text block. An empty completion stalls
+            # the calling agent; a noisy one at least lets the caller see what
+            # the model produced.
+            if (
+                not self.text_emitted_any
+                and not self.tool_call_seen
+                and self.reasoning_buffer
+            ):
+                buf = "".join(self.reasoning_buffer)
+                # Prefer content after the LAST </think> if the model emitted
+                # one — that's where qwen3 puts the actual answer.
+                close_idx = buf.rfind("</think>")
+                payload = buf[close_idx + len("</think>"):] if close_idx >= 0 else buf
+                payload = payload.strip()
+                if payload:
+                    block_idx = self._allocate_block_index()
+                    yield ChunkContentBlockStart(
+                        index=block_idx, block=TextBlock(text="")
+                    )
+                    yield ChunkTextDelta(index=block_idx, text=payload)
+                    yield ChunkContentBlockStop(index=block_idx)
+                    self.text_emitted_any = True
+                    if finish_reason is None or finish_reason == "stop":
+                        finish_reason = "stop"
 
             usage = chunk_obj.get("usage") or {}
             yield ChunkMessageDelta(
