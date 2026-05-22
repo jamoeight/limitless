@@ -531,6 +531,13 @@ class _OpenAIEgressState:
         self.tool_call_idx_for: dict[int, int] = {}
         self.next_tool_call_idx = 0
         self.block_kind: dict[int, str] = {}  # block_idx → "text" | "tool_use"
+        # True once any tool_call has been emitted to the client. Used to
+        # force finish_reason="tool_calls" on the closing chunk even if the
+        # upstream reported "stop" — opencode's prompt loop checks this
+        # field to decide whether to keep iterating, and some upstreams
+        # (notably LM Studio + qwen3 when content is intermixed with the
+        # extracted tool_call) misreport the finish reason.
+        self.tool_call_emitted = False
 
 
 def chunk_to_openai_sse(state: _OpenAIEgressState, chunk: CortexChunk) -> dict[str, Any] | None:
@@ -556,6 +563,7 @@ def chunk_to_openai_sse(state: _OpenAIEgressState, chunk: CortexChunk) -> dict[s
             tc_idx = state.next_tool_call_idx
             state.next_tool_call_idx += 1
             state.tool_call_idx_for[chunk.index] = tc_idx
+            state.tool_call_emitted = True
             return _openai_chunk_skeleton(
                 state,
                 {
@@ -601,6 +609,14 @@ def chunk_to_openai_sse(state: _OpenAIEgressState, chunk: CortexChunk) -> dict[s
 
     if isinstance(chunk, ChunkMessageDelta):
         finish = anthropic_to_openai_stop_reason(chunk.stop_reason)
+        # Defensive override: if any tool_call was emitted during this turn,
+        # force finish_reason="tool_calls" regardless of what upstream said.
+        # opencode's session loop checks finish === "tool-calls" to decide
+        # whether to keep iterating; an upstream that reports "stop" while
+        # also emitting tool_calls (LM Studio + qwen3 with intermixed
+        # content has been observed doing this) breaks the agent loop.
+        if state.tool_call_emitted and finish != "tool_calls":
+            finish = "tool_calls"
         return _openai_chunk_skeleton(state, {}, finish_reason=finish)
 
     if isinstance(chunk, ChunkMessageStop):

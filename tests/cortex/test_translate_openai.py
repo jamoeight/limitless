@@ -363,6 +363,36 @@ def test_parse_openai_stream_drops_whitespace_content_between_tool_calls() -> No
     assert text_deltas[0].text == "Let me read these files:"
 
 
+def test_chunk_to_openai_sse_forces_tool_calls_finish_when_tool_emitted() -> None:
+    """If a tool_call was emitted but upstream finishes with stop_reason=end_turn,
+    cortex must still report finish_reason=tool_calls. Opencode's prompt loop
+    checks finish === 'tool-calls' to decide whether to keep iterating.
+    """
+    state = new_openai_egress_state("qwen/qwen3.5-9b")
+    chunk_to_openai_sse(state, ChunkMessageStart(message_id="msg_x", model="qwen/qwen3.5-9b"))
+    # Emit a tool_call.
+    chunk_to_openai_sse(
+        state,
+        ChunkContentBlockStart(
+            index=0,
+            block=ToolUseBlock(tool_use_id="c0", tool_name="read", tool_input={}),
+        ),
+    )
+    # Upstream reports end_turn (= openai "stop"), but we observed a tool_call.
+    out = chunk_to_openai_sse(state, ChunkMessageDelta(stop_reason="end_turn"))
+    assert out is not None
+    assert out["choices"][0]["finish_reason"] == "tool_calls"
+
+
+def test_chunk_to_openai_sse_preserves_stop_when_no_tool_emitted() -> None:
+    state = new_openai_egress_state("qwen/qwen3.5-9b")
+    chunk_to_openai_sse(state, ChunkMessageStart(message_id="msg_x", model="qwen/qwen3.5-9b"))
+    chunk_to_openai_sse(state, ChunkTextDelta(index=0, text="hello"))
+    out = chunk_to_openai_sse(state, ChunkMessageDelta(stop_reason="end_turn"))
+    assert out is not None
+    assert out["choices"][0]["finish_reason"] == "stop"
+
+
 def test_parse_openai_stream_preserves_meaningful_content_after_tool_call() -> None:
     """Non-whitespace content after a tool_call is still passed through — we
     only suppress pure-whitespace noise. Some models legitimately emit text
