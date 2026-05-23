@@ -1,0 +1,105 @@
+{
+  "rows": [
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 1048,
+      "bucket": "?",
+      "n_chars": 23805418,
+      "n_needles": 8,
+      "position": 31,
+      "total_messages": 25859,
+      "vanilla_opus": {
+        "status": "http_error",
+        "score": 0.0,
+        "score_lenient": 0.0,
+        "latency_ms": 1265.2700999969966,
+        "response": "",
+        "response_head": "",
+        "response_len": 0,
+        "error": "Error: piped stdin input exceeds 10MB. Pass large content as a file path in your prompt instead.\n",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 146687.39920000007,
+        "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let\u2019s spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let\u2019s fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
+        "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
+        "response_len": 642,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "25859",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "6063"
+        },
+        "prompt_tokens": 13376,
+        "completion_tokens": 274
+      }
+    },
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 1048,
+      "bucket": "?",
+      "n_chars": 44741136,
+      "n_needles": 8,
+      "position": 31,
+      "total_messages": 48817,
+      "vanilla_opus": {
+        "status": "http_error",
+        "score": 0.0,
+        "score_lenient": 0.0,
+        "latency_ms": 342.94580000278074,
+        "response": "",
+        "response_head": "",
+        "response_len": 0,
+        "error": "Error: piped stdin input exceeds 10MB. Pass large content as a file path in your prompt instead.\n",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 246782.5002999998,
+        "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let\u2019s spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let\u2019s fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
+        "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
+        "response_len": 642,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "48817",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "6237"
+        },
+        "prompt_tokens": 13416,
+        "completion_tokens": 274
+      }
+    }
+  ],
+  "summary": {
+    "per_bucket": {},
+    "overall": {
+      "vanilla_opus": {
+        "n": 2,
+        "mean_score": 0.0,
+        "mean_score_lenient": 0.0,
+        "perfect_rate": 0.0,
+        "perfect_rate_lenient": 0.0
+      },
+      "cortex_opus": {
+        "n": 2,
+        "mean_score": 1.0,
+        "mean_score_lenient": 1.0,
+        "perfect_rate": 1.0,
+        "perfect_rate_lenient": 1.0
+      }
+    }
+  }
+}

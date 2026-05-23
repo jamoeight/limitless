@@ -6,17 +6,24 @@ Same proxy on any model — local 9B or frontier Opus.
 
 ---
 
-### Opus 4.7 + cortex stays 100% perfect at 10M chars
+### Opus 4.7 + cortex stays 100% perfect through ~9M tokens
 
-![Opus + cortex scaling to 10M chars](results/opus_vs_cortex/hero_v2.png)
+![Opus + cortex scaling past Anthropic's 1M-token Opus limit](results/opus_vs_cortex/hero_v2.png)
 
-Vanilla Opus 4.7 collapses at 1M chars. The API rejects 5M+ outright.
-**Opus + cortex stays at 100% perfect through 10M chars** by compressing
-5K–10K messages into a ~5K-token recap that fits Opus's existing window.
+Anthropic's [Opus 4.6 announcement](https://www.anthropic.com/news/claude-opus-4-6)
+publishes their long-context score on MRCR v2 8-needle at the **1M token**
+scale (76% perfect for Opus 4.6, 18.5% for Sonnet 4.5). Vanilla Opus 4.7
+via `claude -p` collapses to 3% at ~205K tokens and the API rejects ~1M+
+outright. **Opus + cortex stays at 100% perfect through ~9M tokens** —
+9× past Anthropic's published native limit — by compressing up to 49K
+messages into 7 verbatim turns + a ~6K-token recap that fits inside the
+upstream model's window.
 
-n=4 single-seed pilot. 5M and 10M rows are *synthesized* from real
-MRCR 8-needle rows (dataset max = 2.5M chars). Run script and methodology:
-[bench/pilot_opus/](bench/pilot_opus/).
+n=6 single-seed pilot across six scale targets. ~53K- and ~205K-token rows
+are real MRCR 8-needle samples; the four larger rows (~1M, ~2M, ~5M, ~9M
+tokens) are *synthesized* from real MRCR 8-needle rows (dataset max =
+~625K tokens per row). Token counts via o200k_base. Run script and
+methodology: [bench/pilot_opus/](bench/pilot_opus/).
 
 ---
 
@@ -151,16 +158,21 @@ GPU is for the upstream model + embedder.
 
 ## Results detail
 
-#### Opus 4.7 + cortex scaling (n=4, 8-needle)
+#### Opus 4.7 + cortex scaling (n=6, 8-needle, MRCR v2)
 
-| context | vanilla Opus 4.7 | Opus 4.7 + cortex | cortex behavior          |
-|---------|------------------|-------------------|--------------------------|
-| 256K    | 1.000            | 1.000             | passthrough (fits 200K)  |
-| 1M      | 0.033            | **1.000**         | 1094 msgs → 7 + 4.6K recap   |
-| 5M      | OVERFLOW (API)   | **0.997**         | 5303 msgs → 7 + 4.8K recap   |
-| 10M     | OVERFLOW (API)   | **1.000**         | 10615 msgs → 7 + 5.0K recap  |
+| tokens (o200k) | chars (actual) | vanilla Opus 4.7 | Opus 4.7 + cortex | cortex behavior               |
+|---------------:|---------------:|------------------|-------------------|-------------------------------|
+| ~53K           | 256K           | 1.000            | 1.000             | passthrough                   |
+| ~205K          | 1.0M           | 0.033            | **1.000**         | 1094 msgs → 7 + 4.6K recap    |
+| ~1.02M         | 5.0M (synth)   | OVERFLOW (API)   | **0.997**         | 5303 msgs → 7 + 4.8K recap    |
+| ~2.01M         | 9.9M (synth)   | OVERFLOW (API)   | **1.000**         | 10615 msgs → 7 + 5.0K recap   |
+| ~4.88M         | 23.8M (synth)  | OVERFLOW (API)   | **1.000**         | 25859 msgs → 7 + 6.1K recap   |
+| ~9.19M         | 44.7M (synth)  | OVERFLOW (API)   | **1.000**         | 48817 msgs → 7 + 6.2K recap   |
 
-Overall: vanilla 25% perfect, cortex 100% perfect.
+Overall: vanilla 17% perfect, cortex 100% perfect. The ~1.02M-token row
+is at Anthropic's published Opus 4.6 native context limit; the ~9.19M
+row is **9× past it**. Wall clock at 9M tokens: 247s (mostly batched
+embedding of 49K cold message groups via LM Studio).
 
 #### 9B + cortex matches Opus on MRCR (n=30)
 
@@ -183,8 +195,9 @@ Both pilots are single-seed (42):
 - 9B + cortex on MRCR (n=30): rerun with seeds {17, 1729} pending. Cortex
   hits 1.000 on lenient at N=30 so downside is limited, but sampling
   variance is real.
-- Opus + cortex scaling (n=4): single-seed across 4 scale targets. 5M and
-  10M are *synthesized* by stitching real MRCR rows (dataset max = 2.5M).
+- Opus + cortex scaling (n=6): single-seed across 6 token scale targets.
+  Four of the six (~1M, ~2M, ~5M, ~9M tokens) are *synthesized* by
+  stitching real MRCR 8-needle rows (dataset max = ~625K tokens per row).
   Treat as a scaling proof-of-concept until reseeded.
 
 Per-pilot caveat docs: [bench/pilot_cortex/PAPER.md](bench/pilot_cortex/PAPER.md)
