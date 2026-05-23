@@ -1,11 +1,7 @@
 """Chart: Opus 4.7 vs Opus + cortex on MRCR 8-needle scaling.
 
-Context axis labeled in TOKENS (o200k_base), matching Anthropic's convention.
-Token counts are computed on the actual prompt text the model sees (sum of
-all message contents in the conversation list).
-
-Loads BOTH mrcr_v2.json (53K, 205K, 1M, 2M token rows) and mrcr_v3.json
-(5M, 10M token rows) if both exist, and emits a single combined chart.
+Line chart with whole-number token labels on a log x-axis. Loads both
+mrcr_v2.json and mrcr_v3.json and emits a single 6-point sweep.
 """
 
 from __future__ import annotations
@@ -20,9 +16,9 @@ import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Targets used by each result file. Must match the bench invocations.
 V2_TARGETS = [256_000, 1_000_000, 5_000_000, 10_000_000]
 V3_TARGETS = [24_350_000, 48_700_000]
+V4_TARGETS = [97_400_000, 243_500_000]
 
 
 def _load_dataset_rows_for(targets: list[int], seed: int = 42):
@@ -47,14 +43,13 @@ def _prompt_text(sr: dict) -> str:
     return "\n".join(m.get("content", "") for m in msgs)
 
 
-def _fmt_tokens(n: int) -> str:
+def _fmt_tokens_whole(n: int) -> str:
+    """Whole-number labels: 53K, 205K, 1M, 2M, 5M, 9M (no decimals)."""
     if n < 1000:
         return f"{n}"
     if n < 1_000_000:
-        return f"{n/1000:.0f}K"
-    if n < 10_000_000:
-        return f"{n/1_000_000:.2f}M".rstrip("0").rstrip(".")
-    return f"{n/1_000_000:.1f}M"
+        return f"{round(n / 1000)}K"
+    return f"{round(n / 1_000_000)}M"
 
 
 def main(out: str = "results/opus_vs_cortex/hero_v2.png") -> None:
@@ -64,6 +59,7 @@ def main(out: str = "results/opus_vs_cortex/hero_v2.png") -> None:
     for src, targets in (
         ("results/opus_vs_cortex/mrcr_v2.json", V2_TARGETS),
         ("results/opus_vs_cortex/mrcr_v3.json", V3_TARGETS),
+        ("results/opus_vs_cortex/mrcr_v4.json", V4_TARGETS),
     ):
         p = ROOT / src
         if not p.exists():
@@ -78,84 +74,75 @@ def main(out: str = "results/opus_vs_cortex/hero_v2.png") -> None:
 
     rows.sort(key=lambda r: r["_tokens"])
 
+    xs = [r["_tokens"] for r in rows]
     vanilla = [r["vanilla_opus"]["score_lenient"] if r["vanilla_opus"]["status"] == "ok" else 0.0
                for r in rows]
     cortex = [r["cortex_opus"]["score_lenient"] for r in rows]
     vanilla_status = [r["vanilla_opus"]["status"] for r in rows]
 
-    arm_labels = {"vanilla_opus": "Claude Opus 4.7 (vanilla)",
-                  "cortex_opus": "Claude Opus 4.7 + cortex"}
-    colors = {"vanilla_opus": "#d97a3f", "cortex_opus": "#2da44e"}
+    fig, ax = plt.subplots(1, 1, figsize=(12, 7))
 
-    n = len(rows)
-    fig_w = max(12, 2 + n * 1.8)
-    fig, ax = plt.subplots(1, 1, figsize=(fig_w, 7.5))
+    ax.plot(xs, vanilla, marker="o", linewidth=2.8, markersize=11,
+            color="#d97a3f", label="Claude Opus 4.7 (vanilla)",
+            markeredgecolor="white", markeredgewidth=1.5, zorder=3)
+    ax.plot(xs, cortex, marker="o", linewidth=2.8, markersize=11,
+            color="#2da44e", label="Claude Opus 4.7 + cortex",
+            markeredgecolor="white", markeredgewidth=1.5, zorder=3)
 
-    x = list(range(n))
-    bar_w = 0.38
-
-    bars_v = ax.bar([xi - bar_w / 2 for xi in x], vanilla, bar_w,
-                    label=arm_labels["vanilla_opus"],
-                    color=colors["vanilla_opus"], edgecolor="white", linewidth=0.8)
-    bars_c = ax.bar([xi + bar_w / 2 for xi in x], cortex, bar_w,
-                    label=arm_labels["cortex_opus"],
-                    color=colors["cortex_opus"], edgecolor="white", linewidth=0.8)
-
-    for rect, y, status in zip(bars_v, vanilla, vanilla_status):
-        label = f"{y:.3f}" if status == "ok" else "OVERFLOW"
-        ax.annotate(label,
-                    xy=(rect.get_x() + rect.get_width() / 2, max(y, 0.02)),
-                    xytext=(0, 5), textcoords="offset points",
-                    ha="center", va="bottom",
-                    fontsize=10, fontweight="bold" if status != "ok" else "normal",
-                    color="#a83232" if status != "ok" else "black")
-
-    for rect, y in zip(bars_c, cortex):
+    # Annotate cortex points (always near 1.0)
+    for x, y in zip(xs, cortex):
         ax.annotate(f"{y:.3f}",
-                    xy=(rect.get_x() + rect.get_width() / 2, y),
-                    xytext=(0, 5), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=10)
+                    xy=(x, y), xytext=(0, 12), textcoords="offset points",
+                    ha="center", va="bottom", fontsize=10, color="#1f6f37",
+                    fontweight="bold")
 
-    # Highlight Anthropic's published 1M-token Opus 4.6 limit. Snap to the bar
-    # just past 1M tokens.
-    one_m_idx = next((i for i, r in enumerate(rows) if r["_tokens"] >= 1_000_000), None)
-    if one_m_idx is not None:
-        ax.axvline(one_m_idx - 0.5, color="#888", linestyle=":", linewidth=1.2, alpha=0.7)
-        ax.text(one_m_idx - 0.5, 1.135,
-                " Anthropic's published\n Opus 4.6 limit = 1M tokens",
-                fontsize=9, va="top", ha="left", color="#666", style="italic")
+    # Annotate vanilla points — score for ok, "OVERFLOW" for failures
+    for x, y, status in zip(xs, vanilla, vanilla_status):
+        if status == "ok":
+            ax.annotate(f"{y:.3f}",
+                        xy=(x, y), xytext=(0, -16), textcoords="offset points",
+                        ha="center", va="top", fontsize=10, color="#8b3f1c",
+                        fontweight="bold")
+        else:
+            ax.annotate("OVERFLOW",
+                        xy=(x, y), xytext=(0, -16), textcoords="offset points",
+                        ha="center", va="top", fontsize=10, color="#a83232",
+                        fontweight="bold")
 
-    ax.set_xticks(x)
-    xtick_labels = []
-    for r in rows:
-        syn = " (synth)" if r.get("_synthetic") else ""
-        hdrs = r["cortex_opus"].get("headers") or {}
-        kept = hdrs.get("x-cortex-kept-messages", "?")
-        orig = hdrs.get("x-cortex-original-messages", "?")
-        xtick_labels.append(f"{_fmt_tokens(r['_tokens'])} tok{syn}\n{orig}→{kept} msgs")
-    ax.set_xticklabels(xtick_labels, fontsize=9.5)
-    ax.set_ylim(0, 1.20)
+    # Anthropic's published 1M Opus 4.6 limit
+    ax.axvline(1_000_000, linestyle="--", color="#888", linewidth=1.4, alpha=0.7, zorder=1)
+    ax.text(1_000_000, 0.50,
+            " Anthropic's published\n Opus 4.6 limit\n (1M tokens)",
+            fontsize=9.5, va="center", ha="left", color="#666", style="italic")
+
+    ax.set_xscale("log")
+    ax.set_xticks(xs)
+    ax.set_xticklabels([_fmt_tokens_whole(x) for x in xs], fontsize=12, fontweight="bold")
+    ax.minorticks_off()
+
+    ax.set_ylim(-0.08, 1.15)
+    ax.set_yticks([0.0, 0.25, 0.5, 0.75, 1.0])
     ax.set_ylabel("MRCR lenient score (1.0 = perfect)", fontsize=12)
-    ax.set_xlabel("Context length (o200k tokens)", fontsize=11)
-    ax.set_title("MRCR 8-needle scaling: vanilla Opus 4.7 vs Opus 4.7 + cortex\n"
-                 "Anthropic publishes Opus 4.6 at 1M tokens; cortex stays perfect through 9M+",
+    ax.set_xlabel("Context length (tokens, log scale)", fontsize=12)
+    ax.set_title("MRCR 8-needle: Claude Opus 4.7 vs Opus 4.7 + cortex\n"
+                 "Cortex stays perfect through 29M tokens — 29× past Anthropic's published Opus 4.6 limit",
                  fontsize=13, fontweight="bold", pad=14)
-    ax.legend(loc="lower left", framealpha=0.9, fontsize=11)
-    ax.grid(axis="y", alpha=0.25, linestyle="--")
+    ax.legend(loc="center left", framealpha=0.92, fontsize=11)
+    ax.grid(True, axis="y", alpha=0.25, linestyle="--")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
     note = (
-        "Token counts via o200k_base. ~53K and ~205K rows are real MRCR 8-needle samples; "
-        "~1M, ~2M, ~5M, and ~9M-token rows are synthesized by stitching real MRCR 8-needle rows "
-        "(dataset max = ~625K tokens per row).\n"
-        "OVERFLOW = vanilla Opus rejected by API. Cortex compresses 1K–50K messages to 7 verbatim "
-        "turns + a ~5–6K-token recap that fits inside the upstream model's window."
+        "Token counts via tiktoken o200k_base. 53K and 205K rows are real MRCR 8-needle samples; "
+        "1M / 2M / 5M / 9M / 16M / 29M rows are synthesized by stitching real MRCR 8-needle rows "
+        "(dataset max ≈ 625K tokens per row; 400-row dataset combined tops out at ~30M tokens).\n"
+        "OVERFLOW = vanilla Opus rejected by the Anthropic API. Cortex compresses 1K–155K messages "
+        "to 7 verbatim turns + a 5–65K-token recap (verbatim_recall_k=200 used at 16M+)."
     )
     fig.text(0.5, -0.02, note, ha="center", va="top", fontsize=9, style="italic", color="#555555")
 
     plt.savefig(out_path, dpi=150, bbox_inches="tight", facecolor="white")
-    print(f"saved -> {out_path} ({n} datapoints)")
+    print(f"saved -> {out_path} ({len(rows)} datapoints)")
 
 
 if __name__ == "__main__":

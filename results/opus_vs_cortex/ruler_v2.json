@@ -1,0 +1,128 @@
+{
+  "rows": [
+    {
+      "scale": "2m",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 4127258,
+      "n_tokens_llama3": 2095120,
+      "n_tokens_o200k": 2092468,
+      "n_expected_answers": 1,
+      "vanilla_opus": null,
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 162637.8923000011,
+        "response_head": "6143a694-3881-4dc1-8006-cdfb37fed197",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "72409",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "8228",
+          "response": "6143a694-3881-4dc1-8006-cdfb37fed197"
+        }
+      }
+    },
+    {
+      "scale": "5m",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 10317800,
+      "n_tokens_llama3": 5237800,
+      "n_tokens_o200k": 5232494,
+      "n_expected_answers": 1,
+      "vanilla_opus": null,
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 389284.5722999991,
+        "response_head": "6143a694-3881-4dc1-8006-cdfb37fed197",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "181015",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "8248",
+          "response": "6143a694-3881-4dc1-8006-cdfb37fed197"
+        }
+      }
+    },
+    {
+      "scale": "10m",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 20635370,
+      "n_tokens_llama3": 10475600,
+      "n_tokens_o200k": 10464642,
+      "n_expected_answers": 1,
+      "vanilla_opus": null,
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": false,
+        "all_answers_found": false,
+        "n_found": 0,
+        "n_expected": 1,
+        "latency_ms": 778152.3529000005,
+        "response_head": "I don't have a special magic uuid for 423fba94-a002-4cb1-9dbb-334b3a9fa2d7 in the provided text.",
+        "response_len": 96,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "362025",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "8296",
+          "response": "I don't have a special magic uuid for 423fba94-a002-4cb1-9dbb-334b3a9fa2d7 in the provided text."
+        }
+      }
+    }
+  ],
+  "summary": {
+    "per_scale": {
+      "10m": {
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 0.0,
+          "all_found_rate": 0.0
+        }
+      },
+      "2m": {
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        }
+      },
+      "5m": {
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        }
+      }
+    },
+    "overall": {
+      "vanilla_opus": {
+        "n": 0,
+        "any_found_rate": null,
+        "all_found_rate": null
+      },
+      "cortex_opus": {
+        "n": 3,
+        "any_found_rate": 0.6666666666666666,
+        "all_found_rate": 0.6666666666666666
+      }
+    }
+  }
+}

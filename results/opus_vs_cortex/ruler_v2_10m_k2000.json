@@ -1,0 +1,56 @@
+{
+  "rows": [
+    {
+      "scale": "10m",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 20635370,
+      "n_tokens_llama3": 10475600,
+      "n_tokens_o200k": 10464642,
+      "n_expected_answers": 1,
+      "vanilla_opus": null,
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 769284.8402,
+        "response_head": "6143a694-3881-4dc1-8006-cdfb37fed197",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "362025",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "66895",
+          "response": "6143a694-3881-4dc1-8006-cdfb37fed197"
+        }
+      }
+    }
+  ],
+  "summary": {
+    "per_scale": {
+      "10m": {
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        }
+      }
+    },
+    "overall": {
+      "vanilla_opus": {
+        "n": 0,
+        "any_found_rate": null,
+        "all_found_rate": null
+      },
+      "cortex_opus": {
+        "n": 1,
+        "any_found_rate": 1.0,
+        "all_found_rate": 1.0
+      }
+    }
+  }
+}

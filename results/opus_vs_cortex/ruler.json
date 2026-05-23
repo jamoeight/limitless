@@ -1,0 +1,283 @@
+{
+  "rows": [
+    {
+      "scale": "64k",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 125744,
+      "n_tokens_llama3": 63831,
+      "n_tokens_o200k": 63570,
+      "n_expected_answers": 1,
+      "vanilla_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 5717.748799999754,
+        "response_head": "d5ee0855-b321-4620-b7ea-83f89ef8b7bb",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "response": "d5ee0855-b321-4620-b7ea-83f89ef8b7bb"
+        }
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 5639.3822,
+        "response_head": "d5ee0855-b321-4620-b7ea-83f89ef8b7bb",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "false",
+          "x-cortex-original-messages": "2207",
+          "x-cortex-kept-messages": "2207",
+          "x-cortex-recap-tokens": "0",
+          "response": "d5ee0855-b321-4620-b7ea-83f89ef8b7bb"
+        }
+      }
+    },
+    {
+      "scale": "128k",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 251144,
+      "n_tokens_llama3": 127738,
+      "n_tokens_o200k": 127443,
+      "n_expected_answers": 1,
+      "vanilla_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 7535.485000000335,
+        "response_head": "1239564d-2fda-460e-b2fc-f3f958d46e90",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "response": "1239564d-2fda-460e-b2fc-f3f958d46e90"
+        }
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 16665.837100000317,
+        "response_head": "1239564d-2fda-460e-b2fc-f3f958d46e90",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "false",
+          "x-cortex-original-messages": "4407",
+          "x-cortex-kept-messages": "4407",
+          "x-cortex-recap-tokens": "0",
+          "response": "1239564d-2fda-460e-b2fc-f3f958d46e90"
+        }
+      }
+    },
+    {
+      "scale": "256k",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 513344,
+      "n_tokens_llama3": 260911,
+      "n_tokens_o200k": 260430,
+      "n_expected_answers": 1,
+      "vanilla_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 7052.479699999822,
+        "response_head": "03343480-d71a-429c-80a0-05dce575b865",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "response": "03343480-d71a-429c-80a0-05dce575b865"
+        }
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 39518.4105999997,
+        "response_head": "03343480-d71a-429c-80a0-05dce575b865",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "9007",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "752",
+          "response": "03343480-d71a-429c-80a0-05dce575b865"
+        }
+      }
+    },
+    {
+      "scale": "512k",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 1032044,
+      "n_tokens_llama3": 524248,
+      "n_tokens_o200k": 523644,
+      "n_expected_answers": 1,
+      "vanilla_opus": {
+        "status": "ok",
+        "any_answer_found": true,
+        "all_answers_found": true,
+        "n_found": 1,
+        "n_expected": 1,
+        "latency_ms": 18958.880399999543,
+        "response_head": "72cfdb59-2537-4c96-ada1-717c1ae8b9b3",
+        "response_len": 36,
+        "error": "",
+        "headers": {
+          "response": "72cfdb59-2537-4c96-ada1-717c1ae8b9b3"
+        }
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": false,
+        "all_answers_found": false,
+        "n_found": 0,
+        "n_expected": 1,
+        "latency_ms": 49567.29689999975,
+        "response_head": "I don't have a record of a special magic uuid for 4ea8aa48-8693-4b2b-b7f8-290d6c783af1 in the provided text.",
+        "response_len": 108,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "18107",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "752",
+          "response": "I don't have a record of a special magic uuid for 4ea8aa48-8693-4b2b-b7f8-290d6c783af1 in the provided text."
+        }
+      }
+    },
+    {
+      "scale": "1m",
+      "subtask": "niah_multikey_3",
+      "row_idx": 0,
+      "n_chars_user": 2063744,
+      "n_tokens_llama3": 1047560,
+      "n_tokens_o200k": 1046399,
+      "n_expected_answers": 1,
+      "vanilla_opus": {
+        "status": "http_error",
+        "any_answer_found": false,
+        "all_answers_found": false,
+        "n_found": 0,
+        "n_expected": 0,
+        "latency_ms": 1454.3803000005937,
+        "response_head": "",
+        "response_len": 0,
+        "error": "",
+        "headers": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "any_answer_found": false,
+        "all_answers_found": false,
+        "n_found": 0,
+        "n_expected": 1,
+        "latency_ms": 87910.41570000016,
+        "response_head": "The UUID 423fba94-a002-4cb1-9dbb-334b3a9fa2d7 is not mentioned in the provided text.",
+        "response_len": 84,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "36207",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "758",
+          "response": "The UUID 423fba94-a002-4cb1-9dbb-334b3a9fa2d7 is not mentioned in the provided text."
+        }
+      }
+    }
+  ],
+  "summary": {
+    "per_scale": {
+      "128k": {
+        "vanilla_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        }
+      },
+      "1m": {
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 0.0,
+          "all_found_rate": 0.0
+        }
+      },
+      "256k": {
+        "vanilla_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        }
+      },
+      "512k": {
+        "vanilla_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 0.0,
+          "all_found_rate": 0.0
+        }
+      },
+      "64k": {
+        "vanilla_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "any_found_rate": 1.0,
+          "all_found_rate": 1.0
+        }
+      }
+    },
+    "overall": {
+      "vanilla_opus": {
+        "n": 4,
+        "any_found_rate": 1.0,
+        "all_found_rate": 1.0
+      },
+      "cortex_opus": {
+        "n": 5,
+        "any_found_rate": 0.6,
+        "all_found_rate": 0.6
+      }
+    }
+  }
+}

@@ -163,12 +163,14 @@ def pick_rows_by_target(
         base = sub.loc[base_idx].to_dict()
         base["_global_idx"] = base_idx
         base_msgs = _json.loads(base["prompt"])  # type: ignore[arg-type]
-        # Distractor pool: high-char rows, exclude base.
-        pool = sub.drop(index=base_idx).nlargest(40, "n_chars")
+        # Distractor pool: all rows minus base, ordered by char count descending
+        # so very large targets can draw from the full dataset.
+        pool = sub.drop(index=base_idx).sort_values("n_chars", ascending=False)
         needed = max(1, math.ceil((t - base["n_chars"]) / max_real))
-        distractor_idxs = list(pool.index[: needed * 2])
-        rng.shuffle(distractor_idxs)
-        distractor_idxs = distractor_idxs[:needed]
+        # Cap at the pool size to avoid IndexError; oversample slightly for shuffle headroom.
+        candidate_pool = list(pool.index[: min(len(pool), max(needed * 2, 40))])
+        rng.shuffle(candidate_pool)
+        distractor_idxs = candidate_pool[:needed]
 
         # Stitch: keep base's last message (the final query) at the end. Insert
         # distractor messages (all but their final query) BEFORE base's final query.
