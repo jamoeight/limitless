@@ -28,7 +28,7 @@
           {
             "type": "command",
             "command": "timegraph-hook-ingest",
-            "timeout": 30
+            "timeout": 60
           }
         ]
       }
@@ -39,6 +39,29 @@
           {
             "type": "command",
             "command": "timegraph-hook-recall",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Write|NotebookEdit|NotebookRead|Bash|PowerShell|Grep|Glob|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "timegraph-hook-tool-use",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "timegraph-hook-session-start",
             "timeout": 15
           }
         ]

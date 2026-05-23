@@ -197,7 +197,7 @@ scripts to copy and no `.claude/settings.json` edits.
 
 ```bash
 # 1. Install the engine + CLIs (timegraph, timegraph-mcp,
-#    timegraph-hook-{ingest,recall}, cortex-serve).
+#    timegraph-hook-{ingest,recall,tool-use,session-start}, cortex-serve).
 pipx install git+https://github.com/jamoeight/cortex-mcp.git
 # (PyPI: `pipx install timegraph-mcp` once published)
 
@@ -213,21 +213,39 @@ Then in Claude Code, once per machine:
 /plugin install timegraph-cortex
 ```
 
-Restart Claude Code. Memory is live. The plugin auto-wires three things
-so you never call a tool by hand:
+Restart Claude Code. Memory is live. The plugin gives Claude Code an
+**effectively infinite context window** by wiring four hooks + an MCP
+server + three slash commands, so the user never recalls by hand:
 
-1. **MCP server** -- exposes the 5 timegraph tools (`remember`, `add_fact`,
+1. **MCP server** — exposes the 5 timegraph tools (`remember`, `add_fact`,
    `recall`, `query`, `attest`) for when Claude wants explicit access.
-2. **`UserPromptSubmit` hook** -- embeds your prompt, cosine-ranks against
-   prior episodes, injects matching facts as `additionalContext`. Claude
-   sees relevant memory unprompted.
-3. **`Stop` hook** -- reads the transcript, takes the last user-assistant
-   pair, stores it as an episode. Tomorrow's session recalls today's.
+2. **`UserPromptSubmit` hook** — embeds every prompt, runs *two* parallel
+   semantic searches (the fact graph + the episode store), merges the
+   results into `additionalContext`. Claude sees both extracted facts AND
+   raw prior content (file bodies, bash outputs) unprompted.
+3. **`Stop` hook** — high-water-mark transcript scanner. Tracks a byte
+   offset per session at `~/.timegraph/sessions/<session_id>.json` and
+   ingests every *new* user prompt and assistant response since the last
+   fire. Offset advances incrementally per episode, so a partial timeout
+   leaves the system in a correct state.
+4. **`PostToolUse` hook** — after every `Read`/`Edit`/`Write`/`Bash`/
+   `Grep`/`Glob`/`WebFetch`/`WebSearch`, ingests the result as an episode
+   keyed by `source=file:<path>` (or `bash:<hash>`, `search:Grep`, etc.).
+   Extraction is skipped here — embeddings carry the recall, and the
+   fact graph stays focused on user/assistant *statements*. This is
+   what makes a file you read in turn 3 still recallable in turn 200,
+   even after Claude Code auto-compacts.
+5. **`SessionStart` hook** — primes new and resumed sessions with the
+   top facts for this `cwd`; on `source=compact`, re-injects what was
+   just summarized away, making compaction lossless from the user's view.
+
+Slash commands (`/timegraph-cortex:status`, `…:recall <query>`,
+`…:forget <pattern>`) cover stats, manual deep recall, and privacy.
 
 Each project gets its own `group_id` derived from `cwd`, so memories
 stay isolated across repos with no per-project config. Run
-`timegraph status` anytime to verify backends, fastembed cache, claude
-CLI, and plugin install.
+`timegraph status` for backend health, `timegraph stats` for per-project
+episode/fact counts.
 
 **Opus generation never goes through `claude -p`.** Claude Code keeps
 using its native OAuth path -- the June 2026 `-p` pricing change doesn't
@@ -257,11 +275,21 @@ claude                                            # approve project hooks when p
 
 #### Latency notes
 
-- **Recall hook**: ~2–5 s before each user turn (embedding + Qdrant
-  cosine lookup). Visible as a brief pause.
-- **Ingest hook**: runs after the assistant response is already on
-  screen — doesn't block UX. Internally fires one `-p --model haiku`
-  call to extract facts (~1 s) + writes to Neo4j/Qdrant (~1 s).
+- **Recall hook** (`UserPromptSubmit`): ~2–5 s before each user turn
+  (one embed call + two parallel Qdrant lookups — facts + episodes).
+  Visible as a brief pause.
+- **Tool-use hook** (`PostToolUse`): runs after every tool call. One
+  embed + one Qdrant upsert + one Neo4j write (~0.3–1 s). No
+  extractor call — embed-only ingest is what keeps it cheap.
+- **Ingest hook** (`Stop`): runs after the assistant response is
+  already on screen — doesn't block UX. Fires one `-p --model haiku`
+  call per new message to extract facts (~10–30 s on Windows Claude
+  CLI subprocess, faster on macOS/Linux). The 60 s hook timeout caps
+  how many messages get ingested per fire; the high-water-mark cursor
+  resumes on next fire so nothing is lost.
+- **Session-start hook**: ~1–2 s on startup/resume; ~2–3 s on
+  `source=compact` (slightly larger recall budget for the
+  anti-compaction recap).
 - **No `-p` for Opus.** Worth saying twice: only the cheap judge uses
   `-p`. Your subscription Opus usage is unchanged.
 

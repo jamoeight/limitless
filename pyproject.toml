@@ -49,6 +49,8 @@ timegraph = "timegraph.cli:main"
 timegraph-mcp = "timegraph.mcp_server:main"
 timegraph-hook-ingest = "timegraph.hooks.ingest:main"
 timegraph-hook-recall = "timegraph.hooks.recall:main"
+timegraph-hook-tool-use = "timegraph.hooks.tool_use:main"
+timegraph-hook-session-start = "timegraph.hooks.session_start:main"
 cortex-serve = "cortex.server:main"
 
 [build-system]

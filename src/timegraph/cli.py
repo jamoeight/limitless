@@ -345,6 +345,63 @@ async def cmd_status(args: argparse.Namespace) -> int:
     return 0 if all(ok for _, ok, _ in rows) else 1
 
 
+# ---- stats ------------------------------------------------------------
+
+
+async def cmd_stats(args: argparse.Namespace) -> int:
+    """Per-project memory stats — episode count, fact count, session count,
+    last ingest. Used by the /timegraph-cortex:status slash command."""
+    from timegraph.project_id import derive_group_id
+    from timegraph.storage.neo4j_client import get_session
+
+    group_id = args.group_id or derive_group_id(args.cwd)
+
+    try:
+        async with get_session() as session:
+            res = await session.run(
+                """
+                CALL {
+                    MATCH (e:Episode {group_id: $g})
+                    RETURN count(e) AS episodes,
+                           max(e.event_time) AS last_event,
+                           count(DISTINCT e.session_id) AS sessions,
+                           collect(DISTINCT e.source)[..10] AS sources
+                }
+                CALL {
+                    MATCH ()-[r:FACT]->()
+                    WHERE r.group_id = $g
+                    RETURN count(r) AS facts
+                }
+                RETURN episodes, facts, sessions, sources, last_event
+                """,
+                g=group_id,
+            )
+            row = await res.single()
+    except Exception as e:
+        print(f"FAIL  {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+
+    if row is None:
+        print(f"group_id={group_id}  (no memory yet)")
+        return 0
+
+    episodes = row["episodes"] or 0
+    facts = row["facts"] or 0
+    sessions = row["sessions"] or 0
+    sources = row["sources"] or []
+    last_event = row["last_event"]
+    last = str(last_event)[:19] if last_event else "-"
+
+    print(f"timegraph memory for group_id={group_id}")
+    print(f"  episodes:  {episodes}")
+    print(f"  facts:     {facts}")
+    print(f"  sessions:  {sessions}")
+    print(f"  last:      {last}")
+    if sources:
+        print(f"  sources:   {', '.join(str(s) for s in sources[:10])}")
+    return 0
+
+
 # ---- entry ------------------------------------------------------------
 
 
@@ -367,12 +424,18 @@ def main() -> None:
     status_p.add_argument("--home", default=str(DEFAULT_HOME),
                           help=f"Compose file location (default: {DEFAULT_HOME})")
 
+    stats_p = sub.add_parser("stats", help="Per-project memory stats (episode/fact counts)")
+    stats_p.add_argument("--group-id", default=None, help="Override the cwd-derived group_id")
+    stats_p.add_argument("--cwd", default=None, help="Treat this path as the project root")
+
     args = p.parse_args()
 
     if args.cmd == "init":
         sys.exit(asyncio.run(cmd_init(args)))
     elif args.cmd == "status":
         sys.exit(asyncio.run(cmd_status(args)))
+    elif args.cmd == "stats":
+        sys.exit(asyncio.run(cmd_stats(args)))
     else:
         p.print_help()
         sys.exit(2)

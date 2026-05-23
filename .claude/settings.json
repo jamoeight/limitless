@@ -17,7 +17,30 @@
           {
             "type": "command",
             "command": ".venv/Scripts/python.exe scripts/hook_ingest.py",
-            "timeout": 30
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read|Edit|Write|NotebookEdit|NotebookRead|Bash|PowerShell|Grep|Glob|WebFetch|WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe scripts/hook_tool_use.py",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe scripts/hook_session_start.py",
+            "timeout": 15
           }
         ]
       }
