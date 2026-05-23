@@ -313,7 +313,7 @@ def call_vanilla_opus(messages: list[dict[str, str]], *, timeout_s: float = 900.
 
 
 async def call_cortex_opus(messages: list[dict[str, str]], *, group_id: str,
-                            timeout_s: float = 900.0) -> ArmResult:
+                            timeout_s: float = 1800.0) -> ArmResult:
     # Anthropic-format body. cortex routes claude-* to ClaudeCliProvider when
     # CORTEX_USE_CLAUDE_CLI_PROVIDER=true.
     body: dict[str, Any] = {
@@ -409,9 +409,13 @@ async def main() -> int:
     parser.add_argument("--buckets", default="S,M,L",
                         help="Comma-separated buckets to sample from (e.g. 'L' or 'S,M,L').")
     parser.add_argument("--targets", default="",
-                        help="Comma-separated target char counts (e.g. '256000,1000000,5000000,10000000'). "
+                        help="Comma-separated targets (e.g. '256000,1000000,5000000,10000000'). "
                              "When set, overrides --per-bucket: picks one 8-needle row near each target, "
                              "synthesizing (stitching multiple rows) when no real row exists at that scale.")
+    parser.add_argument("--unit", default="chars", choices=["chars", "tokens"],
+                        help="Unit for --targets. 'tokens' multiplies each by 4 (char/4 convention) to "
+                             "match Anthropic's token-based context measurements (e.g. claude-opus-4-6 "
+                             "MRCR v2 1M variant).")
     parser.add_argument("--n-needles", type=int, default=8,
                         help="When --targets is set, restrict to rows with this n_needles.")
     parser.add_argument("--seed", type=int, default=42)
@@ -425,14 +429,23 @@ async def main() -> int:
     print(f"  total rows: {len(df)}")
 
     if args.targets:
-        targets = [int(t.strip()) for t in args.targets.split(",") if t.strip()]
+        raw_targets = [int(t.strip()) for t in args.targets.split(",") if t.strip()]
+        # tokens → chars via char/4 convention
+        if args.unit == "tokens":
+            targets = [t * 4 for t in raw_targets]
+            print(f"  unit=tokens; converted to char targets (×4): {targets}")
+        else:
+            targets = raw_targets
         sample = pick_rows_by_target(df, targets, args.seed, n_needles=args.n_needles)
-        print(f"  targets={targets} n_needles={args.n_needles}; picked: {len(sample)}")
-        for r in sample:
+        print(f"  targets(chars)={targets} n_needles={args.n_needles}; picked: {len(sample)}")
+        for r, raw_t in zip(sample, raw_targets):
             tag = "synth" if r.get("_synthetic") else "real"
             comps = r.get("_synth_components", [])
-            print(f"    target={r['_target']:>10,} got={r['n_chars']:>10,} chars [{tag}]"
+            unit_label = f"{raw_t:,} {args.unit}"
+            print(f"    target={unit_label:>20s} got={r['n_chars']:>11,} chars [{tag}]"
                   + (f" components={comps}" if comps else ""))
+            # Stash the raw token target on the row for chart labelling later.
+            r["_target_tokens"] = raw_t if args.unit == "tokens" else None
     else:
         buckets = tuple(b.strip() for b in args.buckets.split(",") if b.strip())
         sample = pick_rows_per_bucket(df, args.per_bucket, args.seed, buckets=buckets)

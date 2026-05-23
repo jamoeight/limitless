@@ -2,21 +2,62 @@
   "rows": [
     {
       "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 853,
+      "bucket": "L",
+      "n_chars": 1020088,
+      "n_needles": 8,
+      "position": 715,
+      "total_messages": 1078,
+      "vanilla_opus": {
+        "status": "ok",
+        "score": 0.1618181818181818,
+        "score_lenient": 0.1618181818181818,
+        "latency_ms": 67261.45259999612,
+        "response": "Wo4UsNs5Hh[Your Name]  \n[Your Address]  \n[City, State, ZIP Code]  \n[Email Address]  \n[Phone Number]  \n[Date]  \n\n[Recipient's Name]  \n[Recipient's Title]  \n[Organization/Institution Name]  \n[Address]  \n[City, State, ZIP Code]  \n\nDear [Recipient's Name],\n\nSubject: Promoting Health and Wellness Initiatives\n\nI hope this letter finds you in good health and high spirits. I am writing to you as an advocate for health and wellness, addressing the importance of initiating comprehensive health programs within our community.\n\nThe advent of various lifestyle-related diseases serves as a clarion call for the immediate need to prioritize health-oriented initiatives. It is crucial for us as a society to place greater emphasis on preventive measures and awareness programs, focusing on nutrition, physical activity, mental health, and regular health check-ups.\n\nWe are fortunate to live in a time where we have access to a wealth of resources and technology that can greatly enhance the well-being of our constituents. By implementing structured health programs, we can ensure better health outcomes, reduce the burden of chronic diseases, and ultimately foster a healthier community.\n\nI propose the following initiatives to promote health and wellness within our community:\n\n1. **Community Health Screenings**: Regular health check-ups and screenings for common diseases such as diabetes, hypertension, and obesity can facilitate early detection and management.\n\n2. **Nutritional Education Workshops**: These workshops can educate individuals about the benefits of a balanced diet and how to make healthier food choices.\n\n3. **Exercise and Fitness Programs**: Organizing physical fitness activities and community events can encourage people to adopt more active lifestyles.\n\n4. **Mental Health Awareness**: Hosting seminars and providing resources for mental health can help break the stigma and provide necessary support to those in need.\n\n5. **Partnerships with Local Health Experts**: Collaborating with healthcare professionals to provide expert guidance and credible information to the community.\n\nI believe these initiatives can have a profound impact on our community's overall health and wellness. I would be grateful for the opportunity to discuss these ideas further and explore how we might collaborate to bring these initiatives to fruition.\n\nThank you for considering this important matter. I am hopeful that, together, we can take significant strides towards promoting a healthier future for all. Please feel free to contact me at your earliest convenience.\n\nYours sincerely,\n\n[Your Name]  \n\n[Your Position, if applicable]  \n[Your Organization, if applicable]",
+        "response_head": "Wo4UsNs5Hh[Your Name]  \n[Your Address]  \n[City, State, ZIP Code]  \n[Email Address]  \n[Phone Number]  \n[Date]  \n\n[Recipient's Name]  \n[Recipient's Title]  \n[Organization/Institution Name]  \n[Address]  ",
+        "response_len": 2668,
+        "error": "",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 0.9996480112636396,
+        "score_lenient": 0.9996480112636396,
+        "latency_ms": 28407.03680000297,
+        "response": "Wo4UsNs5Hh[Your Name]  \n[Your Address]  \n[City, State, ZIP Code]  \n[Email Address]  \n[Phone Number]  \n[Date]  \n\n[Recipient's Name]  \n[Title/Position]  \n[Organization/Institution Name]  \n[Address]  \n[City, State, ZIP Code]  \n\nDear [Recipient's Name],\n\nSubject: Importance of Promoting Health and Well-being\n\nI hope this letter finds you in good health and high spirits. I am writing to address the critical issue of promoting health and well-being in our community, an endeavor that requires our immediate attention and concerted efforts.\n\nIn recent years, we have observed an alarming rise in health-related issues, ranging from chronic diseases to mental health challenges. These conditions not only affect the quality of life of individuals but also place a significant burden on our healthcare system. As such, it is imperative that we prioritize health promotion initiatives that aim to foster a healthier lifestyle among our community members.\n\nOne of the primary steps we can take is to enhance public awareness about the importance of preventive healthcare measures. This includes educating individuals on the benefits of regular physical activity, balanced nutrition, and routine medical check-ups. By disseminating information through workshops, seminars, and social media campaigns, we can empower individuals to make informed health choices.\n\nFurthermore, we need to advocate for policies that support healthy living environments. This involves collaborating with local government and organizations to ensure access to safe recreational spaces, affordable nutritious foods, and quality healthcare services for all, especially underserved populations.\n\nThe integration of mental health awareness into our programs is equally vital. Initiatives that aim to reduce stigma and provide support for mental health issues are crucial in fostering an inclusive environment where individuals feel supported and valued.\n\nTo achieve these goals, I propose the establishment of a task force comprising health professionals, community leaders, educators, and other stakeholders. This task force would be responsible for developing and implementing a comprehensive health promotion strategy tailored to the unique needs of our community.\n\nI believe that by working together, we can create a sustainable and impactful health promotion framework that will benefit current and future generations. I am keen to discuss this proposal further and explore how we can collaborate to enhance the health and well-being of our community.\n\nThank you for your attention to this important matter. I look forward to your positive response and to the possibility of working together to make a significant difference in the lives of our community members.\n\nWarm regards,\n\n[Your Name]  \n[Your Title/Position, if applicable]  \n[Your Organization/Institution, if applicable]",
+        "response_head": "Wo4UsNs5Hh[Your Name]  \n[Your Address]  \n[City, State, ZIP Code]  \n[Email Address]  \n[Phone Number]  \n[Date]  \n\n[Recipient's Name]  \n[Title/Position]  \n[Organization/Institution Name]  \n[Address]  \n[C",
+        "response_len": 2850,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "1078",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "11306"
+        },
+        "prompt_tokens": 19347,
+        "completion_tokens": 1037
+      }
+    },
+    {
+      "src_shard": "8needle/8needle_0.parquet",
       "row_idx": 1048,
-      "bucket": "?",
-      "n_chars": 23805418,
+      "bucket": "XL",
+      "n_chars": 4860598,
       "n_needles": 8,
       "position": 31,
-      "total_messages": 25859,
+      "total_messages": 5201,
       "vanilla_opus": {
         "status": "http_error",
         "score": 0.0,
         "score_lenient": 0.0,
-        "latency_ms": 1265.2700999969966,
+        "latency_ms": 885.6212000027881,
         "response": "",
         "response_head": "",
         "response_len": 0,
-        "error": "Error: piped stdin input exceeds 10MB. Pass large content as a file path in your prompt instead.\n",
+        "error": "",
         "headers": null,
         "prompt_tokens": null,
         "completion_tokens": null
@@ -25,7 +66,7 @@
         "status": "ok",
         "score": 1.0,
         "score_lenient": 1.0,
-        "latency_ms": 146687.39920000007,
+        "latency_ms": 29222.497800001292,
         "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let\u2019s spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let\u2019s fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
         "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
         "response_len": 642,
@@ -33,11 +74,11 @@
         "headers": {
           "x-cortex-proxy": "anthropic",
           "x-cortex-virtualized": "true",
-          "x-cortex-original-messages": "25859",
+          "x-cortex-original-messages": "5201",
           "x-cortex-kept-messages": "7",
-          "x-cortex-recap-tokens": "6063"
+          "x-cortex-recap-tokens": "5468"
         },
-        "prompt_tokens": 13376,
+        "prompt_tokens": 13890,
         "completion_tokens": 274
       }
     },
@@ -45,15 +86,15 @@
       "src_shard": "8needle/8needle_0.parquet",
       "row_idx": 1048,
       "bucket": "?",
-      "n_chars": 44741136,
+      "n_chars": 18317321,
       "n_needles": 8,
       "position": 31,
-      "total_messages": 48817,
+      "total_messages": 19807,
       "vanilla_opus": {
         "status": "http_error",
         "score": 0.0,
         "score_lenient": 0.0,
-        "latency_ms": 342.94580000278074,
+        "latency_ms": 304.7558999969624,
         "response": "",
         "response_head": "",
         "response_len": 0,
@@ -66,7 +107,7 @@
         "status": "ok",
         "score": 1.0,
         "score_lenient": 1.0,
-        "latency_ms": 246782.5002999998,
+        "latency_ms": 73074.7995999991,
         "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let\u2019s spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let\u2019s fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
         "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
         "response_len": 642,
@@ -74,29 +115,85 @@
         "headers": {
           "x-cortex-proxy": "anthropic",
           "x-cortex-virtualized": "true",
-          "x-cortex-original-messages": "48817",
+          "x-cortex-original-messages": "19807",
           "x-cortex-kept-messages": "7",
-          "x-cortex-recap-tokens": "6237"
+          "x-cortex-recap-tokens": "5925"
         },
-        "prompt_tokens": 13416,
+        "prompt_tokens": 13542,
+        "completion_tokens": 274
+      }
+    },
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 1048,
+      "bucket": "?",
+      "n_chars": 35505757,
+      "n_needles": 8,
+      "position": 31,
+      "total_messages": 38713,
+      "vanilla_opus": {
+        "status": "http_error",
+        "score": 0.0,
+        "score_lenient": 0.0,
+        "latency_ms": 308.60910000046715,
+        "response": "",
+        "response_head": "",
+        "response_len": 0,
+        "error": "Error: piped stdin input exceeds 10MB. Pass large content as a file path in your prompt instead.\n",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 124694.09820000146,
+        "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let\u2019s spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let\u2019s fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
+        "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
+        "response_len": 642,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "38713",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "5373"
+        },
+        "prompt_tokens": 13223,
         "completion_tokens": 274
       }
     }
   ],
   "summary": {
-    "per_bucket": {},
+    "per_bucket": {
+      "L": {
+        "vanilla_opus": {
+          "n": 1,
+          "mean_score": 0.1618181818181818,
+          "mean_score_lenient": 0.1618181818181818,
+          "perfect_rate_lenient": 0.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "mean_score": 0.9996480112636396,
+          "mean_score_lenient": 0.9996480112636396,
+          "perfect_rate_lenient": 1.0
+        }
+      }
+    },
     "overall": {
       "vanilla_opus": {
-        "n": 2,
-        "mean_score": 0.0,
-        "mean_score_lenient": 0.0,
+        "n": 4,
+        "mean_score": 0.04045454545454545,
+        "mean_score_lenient": 0.04045454545454545,
         "perfect_rate": 0.0,
         "perfect_rate_lenient": 0.0
       },
       "cortex_opus": {
-        "n": 2,
-        "mean_score": 1.0,
-        "mean_score_lenient": 1.0,
+        "n": 4,
+        "mean_score": 0.9999120028159099,
+        "mean_score_lenient": 0.9999120028159099,
         "perfect_rate": 1.0,
         "perfect_rate_lenient": 1.0
       }
