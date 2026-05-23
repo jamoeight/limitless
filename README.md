@@ -98,21 +98,76 @@ When the conversation fits natively, cortex **short-circuits to
 pass-through** — the model sees byte-identical input to raw. (Verified:
 S/M-bucket cortex == raw on the pilot.)
 
-## Quickstart
+## Install
+
+Two supported paths. Both share the same backends (Neo4j + Qdrant + a local
+embedder) and the same proxy binary. They differ in **what runs the LLM
+calls**: the Claude Code path uses your existing `claude` subscription via
+the local CLI; the local-model path uses LM Studio + Qwen3.5-9B.
+
+Shared prerequisites for both paths:
 
 ```bash
-# 1. Backends + Python.
+# Backends + Python package.
 docker compose up -d                          # Neo4j + Qdrant
 python -m venv .venv && .venv/Scripts/pip install -e .
 docker compose exec -T qdrant true            # wait for healthy
-python -m timegraph.storage.schema --apply
+.venv/Scripts/python.exe -m timegraph.storage.schema --apply
 
-# 2. Load LM Studio models at the right context (lms is the LM Studio CLI).
-lms load qwen/qwen3.5-9b --identifier qwen/qwen3.5-9b --context-length 100000 --gpu max --ttl 86400
+# Embedder — required for verbatim recall on both paths.
+# Install LM Studio (https://lmstudio.ai) and load the embedder:
 lms load text-embedding-nomic-embed-text-v1.5 --gpu max --ttl 86400
+```
+
+---
+
+### Path A — Claude Code + Haiku judge (frontier upstream, no API key needed)
+
+Uses your local `claude` CLI's OAuth session for both the **upstream model
+calls** (Opus / Sonnet, whatever you ask for) and the **internal judge /
+query-reformulation calls** (Haiku 4.5, ~$0.03/call after cache warms).
+No `ANTHROPIC_API_KEY` required — auth is your Claude Code subscription.
+
+```bash
+# 1. Verify the claude CLI is on PATH and logged in.
+claude --version
+claude -p --model haiku "say ok"              # should print "ok"
+
+# 2. Start the cortex proxy on :8080.
+TG_JUDGE_BACKEND=claude_cli \
+TG_JUDGE_CLAUDE_MODEL=haiku \
+CORTEX_DEFAULT_PROVIDER=anthropic \
+CORTEX_USE_CLAUDE_CLI_PROVIDER=true \
+CORTEX_ENABLE_AUTO_INGEST=false \
+CORTEX_ENABLE_VIRTUALIZATION=true \
+CORTEX_ENABLE_VERBATIM_RECALL=true \
+CORTEX_ENABLE_QUERY_REFORMULATION=true \
+CORTEX_LAST_K_SPANS=2 \
+CORTEX_VERBATIM_RECALL_K=24 \
+  .venv/Scripts/python.exe -m cortex.server &
+
+# 3. Point a client at http://127.0.0.1:8080 and ask for any claude-* model.
+#    Auth header is ignored on this path (OAuth is taken from `claude` CLI).
+```
+
+Trade-off: each upstream call shells out to `claude -p` (~10–20 s subprocess
+overhead vs ~3 s direct API). Judge calls add ~15 s each. Worth it for
+*"I already pay for Claude Code — give me infinite context on top of it"*.
+
+---
+
+### Path B — Local model only (LM Studio + Qwen3.5-9B, fully offline)
+
+Runs everything on your own hardware. Upstream model, judge, embedder are
+all local. This is the configuration the headline 9B-matches-Opus pilot
+in `results/pilot_cortex/` was run on.
+
+```bash
+# 1. Load the 9B alongside the embedder.
+lms load qwen/qwen3.5-9b --identifier qwen/qwen3.5-9b --context-length 100000 --gpu max --ttl 86400
 lms ps                                        # verify CONTEXT=100000
 
-# 3. Start the cortex proxy on :8080.
+# 2. Start the cortex proxy on :8080.
 CORTEX_DEFAULT_PROVIDER=openai \
 CORTEX_OPENAI_BASE_URL=http://127.0.0.1:1234 \
 CORTEX_ENABLE_AUTO_INGEST=false \
@@ -124,14 +179,19 @@ CORTEX_LAST_K_SPANS=2 \
 CORTEX_VERBATIM_RECALL_K=24 \
   .venv/Scripts/python.exe -m cortex.server &
 
-# 4. Reproduce the benchmark.
+# 3. Reproduce the 9B-matches-Opus benchmark.
 PYTHONPATH=src .venv/Scripts/python.exe bench/pilot_cortex/run.py \
   --seed 42 --per-bucket 10 --out results/pilot_cortex/scale30.json
 ```
 
+Hardware target: ~24 GB VRAM for Qwen3.5-9B at 100K context + nomic
+embedder. Tested on RTX 4090.
+
+---
+
 Cortex exposes OpenAI-compatible `/v1/chat/completions` and
-Anthropic-compatible `/v1/messages`. Point any client at `http://127.0.0.1:8080`
-and use the upstream's API key as the auth header.
+Anthropic-compatible `/v1/messages` on both paths. Point any client at
+`http://127.0.0.1:8080`.
 
 ## What this does NOT claim
 
