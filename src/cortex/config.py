@@ -35,6 +35,12 @@ class CortexSettings(BaseSettings):
     upstream_timeout_s: float = Field(300.0, description="Long generations need headroom")
     upstream_connect_timeout_s: float = Field(10.0)
 
+    # When True, replace the real AnthropicProvider with ClaudeCliProvider,
+    # which shells out to `claude -p` per request (uses caller's OAuth session
+    # instead of an API key). Used for benchmarks where ANTHROPIC_API_KEY
+    # isn't configured. Adds ~10-20s/call subprocess overhead.
+    use_claude_cli_provider: bool = Field(False)
+
     # --- Auth mode ---
     # byo_key: client sends provider key, we forward verbatim; group_id derived from key hash.
     # tenant_key: client sends a Cortex-issued key; we look up provider keys server-side.

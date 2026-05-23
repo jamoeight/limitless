@@ -55,3 +55,4 @@ logs/
 .env
 .env.local
 *.key
+research/

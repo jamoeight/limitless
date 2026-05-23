@@ -1,20 +1,36 @@
 # cortex
 
-**Infinite-context proxy for any LLM.**
-A 9B local model + cortex matches Claude Opus 4.7 on long-context retrieval —
-**100% perfect on 30 stratified MRCR rows**, including all 10 rows with 1M+
-character haystacks where raw Opus collapsed to 50%.
+**Infinite-context proxy for any LLM.** Compresses long chat history into
+a verbatim recap that fits inside the upstream model's native window.
+Same proxy on any model — local 9B or frontier Opus.
 
-![9B + cortex matches/beats Opus on MRCR](results/pilot_cortex/hero.png)
+---
 
-| arm                    | n  | MRCR lenient mean | perfect% | L-bucket lenient |
-|------------------------|----|-------------------|----------|------------------|
-| Qwen3.5-9B (raw)       | 30 | 0.669             | 67%      | 0.006 (0%)       |
-| **Qwen3.5-9B + cortex**| 30 | **1.000**         | **100%** | **0.999 (100%)** |
-| Claude Opus 4.7        | 30 | 0.759             | 73%      | 0.561 (50%)      |
+### Opus 4.7 + cortex stays 100% perfect at 10M chars
 
-Full results, mechanism, methodology, and caveats:
-**[bench/pilot_cortex/PAPER.md](bench/pilot_cortex/PAPER.md)**.
+![Opus + cortex scaling to 10M chars](results/opus_vs_cortex/hero_v2.png)
+
+Vanilla Opus 4.7 collapses at 1M chars. The API rejects 5M+ outright.
+**Opus + cortex stays at 100% perfect through 10M chars** by compressing
+5K–10K messages into a ~5K-token recap that fits Opus's existing window.
+
+n=4 single-seed pilot. 5M and 10M rows are *synthesized* from real
+MRCR 8-needle rows (dataset max = 2.5M chars). Run script and methodology:
+[bench/pilot_opus/](bench/pilot_opus/).
+
+---
+
+### A local 9B + cortex matches Opus on MRCR
+
+![9B + cortex matches Opus on 30 MRCR rows](results/pilot_cortex/hero.png)
+
+Same proxy, different demonstration. **Qwen3.5-9B + cortex hits 100% perfect
+on 30 MRCR rows. Vanilla Opus 4.7 hits 73%.** The 9B catches the frontier
+because cortex pre-locates the needles — the model only sees the recap.
+
+n=30 single-seed pilot. Strict-rubric is 0 across both 9B arms (qwen3.5
+prepends `\n\n`). Full caveats:
+[bench/pilot_cortex/PAPER.md](bench/pilot_cortex/PAPER.md).
 
 ## What it is
 
@@ -133,6 +149,27 @@ GPU is for the upstream model + embedder.
 - ⚠️ MVP-5 deferred: production auth modes (BYO-key / tenant-key / hybrid), `X-Cortex-Degraded` SSE channel
 - ⚠️ MVP-6 deferred: tool-aware ingest (per-file episodes for `read_file` / `write_file` / `bash` results — chunk-level retrieval inside file contents)
 
+## Results detail
+
+#### Opus 4.7 + cortex scaling (n=4, 8-needle)
+
+| context | vanilla Opus 4.7 | Opus 4.7 + cortex | cortex behavior          |
+|---------|------------------|-------------------|--------------------------|
+| 256K    | 1.000            | 1.000             | passthrough (fits 200K)  |
+| 1M      | 0.033            | **1.000**         | 1094 msgs → 7 + 4.6K recap   |
+| 5M      | OVERFLOW (API)   | **0.997**         | 5303 msgs → 7 + 4.8K recap   |
+| 10M     | OVERFLOW (API)   | **1.000**         | 10615 msgs → 7 + 5.0K recap  |
+
+Overall: vanilla 25% perfect, cortex 100% perfect.
+
+#### 9B + cortex matches Opus on MRCR (n=30)
+
+| arm                    | n  | MRCR lenient mean | perfect% | L-bucket lenient |
+|------------------------|----|-------------------|----------|------------------|
+| Qwen3.5-9B (raw)       | 30 | 0.669             | 67%      | 0.006 (0%)       |
+| **Qwen3.5-9B + cortex**| 30 | **1.000**         | **100%** | **0.999 (100%)** |
+| Claude Opus 4.7        | 30 | 0.759             | 73%      | 0.561 (50%)      |
+
 ## Honest scope
 
 Cortex's claim is **effectively unlimited context for retrieval-shaped
@@ -142,11 +179,17 @@ reasoning, multi-hop inference, or summarization, the technique is
 necessary but not sufficient — the upstream model still has to do the
 reasoning over the recap.
 
-The 30-row pilot is single-seed (42). To-do: rerun with seeds {17, 1729}
-and report mean ± stdev. With cortex hitting 1.000 on lenient at N=30
-there is limited downside, but variance from sampling is real.
+Both pilots are single-seed (42):
+- 9B + cortex on MRCR (n=30): rerun with seeds {17, 1729} pending. Cortex
+  hits 1.000 on lenient at N=30 so downside is limited, but sampling
+  variance is real.
+- Opus + cortex scaling (n=4): single-seed across 4 scale targets. 5M and
+  10M are *synthesized* by stitching real MRCR rows (dataset max = 2.5M).
+  Treat as a scaling proof-of-concept until reseeded.
 
-PAPER.md has the full set of caveats and threats to validity.
+Per-pilot caveat docs: [bench/pilot_cortex/PAPER.md](bench/pilot_cortex/PAPER.md)
+(9B story) and [bench/pilot_opus/run.py](bench/pilot_opus/run.py) docstring +
+the synthesis logic in `pick_rows_by_target` (Opus scaling).
 
 ## License + contact
 

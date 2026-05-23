@@ -35,6 +35,24 @@ class Settings(BaseSettings):
     judge_max_tokens: int = Field(1536, description="Includes thinking field content + structured tail")
     judge_timeout_s: float = Field(60.0, description="Generous — Qwopus on 4090 ~30-50 tok/s with reasoning")
 
+    # --- Judge backend selection ---
+    # "lm_studio" (default): HTTP POST to LM Studio /v1/chat/completions (Qwen3.5-9B).
+    # "claude_cli": shell out to `claude -p` (uses caller's OAuth; --bare requires API key).
+    judge_backend: str = Field("lm_studio", description="lm_studio | claude_cli")
+    judge_claude_cli_path: str = Field("claude", description="claude CLI binary name/path on PATH")
+    judge_claude_model: str = Field(
+        "haiku",
+        description="Model alias passed via --model. 'haiku' = claude-haiku-4-5; 'sonnet' = claude-sonnet-4-6.",
+    )
+    judge_claude_budget_usd: float = Field(
+        0.50,
+        description="Per-call --max-budget-usd cap. ~$0.03/call after cache warms; first call ~$0.05.",
+    )
+    judge_claude_timeout_s: float = Field(
+        90.0,
+        description="Subprocess wall-clock. claude -p over OAuth runs an internal agent loop (~15s typical).",
+    )
+
     extractor_url: str = Field("http://127.0.0.1:1234/v1", description="Same LM Studio instance (multi-model)")
     extractor_model: str = Field(
         "qwen/qwen3.5-9b",

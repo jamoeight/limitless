@@ -13,6 +13,8 @@ The `thinking` field is parsed off before returning the result.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from pathlib import Path
 from typing import Any
@@ -23,7 +25,7 @@ from jinja2 import Environment, FileSystemLoader
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from timegraph.config import get_settings
-from timegraph.llm.schemas import JUDGE_RESPONSE_FORMAT
+from timegraph.llm.schemas import JUDGE_RESPONSE_FORMAT, JUDGE_SCHEMA
 from timegraph.types import ConflictTriple, Resolution
 
 log = structlog.get_logger(__name__)
@@ -82,6 +84,14 @@ class JudgeClient:
             episodes=source_episodes_truncated or [],
         )
 
+        backend = self.s.judge_backend
+        if backend == "claude_cli":
+            return await self._judge_via_claude_cli(prompt)
+        if backend == "lm_studio":
+            return await self._judge_via_lm_studio(prompt)
+        raise ValueError(f"unknown judge_backend: {backend!r}")
+
+    async def _judge_via_lm_studio(self, prompt: str) -> JudgeOutput:
         body: dict[str, Any] = {
             "model": self.s.judge_model,
             "messages": [{"role": "user", "content": prompt}],
@@ -117,6 +127,75 @@ class JudgeClient:
             call_count=1,
             latency_ms=latency_ms,
             raw_json=raw,
+        )
+
+    async def _judge_via_claude_cli(self, prompt: str) -> JudgeOutput:
+        # Shell out to `claude -p` using the caller's OAuth session.
+        # The Claude Code agent context still loads (no --bare without API key),
+        # so first call ~$0.05 (cache write), subsequent within 5min ~$0.005 (cache read).
+        argv = [
+            self.s.judge_claude_cli_path,
+            "-p",
+            "--no-session-persistence",
+            "--model",
+            self.s.judge_claude_model,
+            "--output-format",
+            "json",
+            "--json-schema",
+            json.dumps(JUDGE_SCHEMA),
+            "--tools",
+            "",
+            "--disable-slash-commands",
+            "--max-budget-usd",
+            str(self.s.judge_claude_budget_usd),
+        ]
+
+        t0 = time.perf_counter()
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(prompt.encode("utf-8")),
+                timeout=self.s.judge_claude_timeout_s,
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise ValueError(f"claude -p timed out after {self.s.judge_claude_timeout_s}s")
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        if proc.returncode != 0:
+            err = stderr.decode("utf-8", errors="replace")[:500]
+            raise ValueError(f"claude -p exit {proc.returncode}: {err}")
+
+        raw = stdout.decode("utf-8", errors="replace")
+        try:
+            envelope = json.loads(raw)
+        except json.JSONDecodeError as e:
+            log.error("claude -p returned non-JSON", head=raw[:200])
+            raise ValueError(f"claude -p non-JSON stdout: {e}") from e
+
+        if envelope.get("is_error"):
+            errs = envelope.get("errors") or [envelope.get("result", "unknown")]
+            raise ValueError(f"claude -p error: {errs}")
+
+        structured = envelope.get("structured_output")
+        if not structured:
+            log.error("claude -p missing structured_output", envelope_keys=list(envelope.keys()))
+            raise ValueError("claude -p returned no structured_output")
+
+        return JudgeOutput(
+            resolution=Resolution(structured["resolution"]),
+            reason=structured["reason"],
+            confidence=float(structured["confidence"]),
+            thinking=structured.get("thinking", ""),
+            call_count=1,
+            latency_ms=latency_ms,
+            raw_json=json.dumps(structured),
         )
 
     @staticmethod

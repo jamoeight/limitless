@@ -35,6 +35,7 @@ from cortex.ingest import (
 )
 from cortex.providers.anthropic import AnthropicProvider
 from cortex.providers.base import Provider
+from cortex.providers.claude_cli import ClaudeCliProvider
 from cortex.providers.openai import OpenAIProvider
 from cortex.recall import real_recall, recall_verbatim_inline
 from cortex.translate.anthropic import (
@@ -131,7 +132,10 @@ def _build_app(
             r = explicit_registry
         else:
             r = ProviderRegistry()
-            r.register(AnthropicProvider(s))
+            if s.use_claude_cli_provider:
+                r.register(ClaudeCliProvider(s))
+            else:
+                r.register(AnthropicProvider(s))
             r.register(OpenAIProvider(s))
         sr = explicit_session_registry or SessionRegistry(s)
         app.state.registry = r

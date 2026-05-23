@@ -1,0 +1,216 @@
+{
+  "rows": [
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 1173,
+      "bucket": "M",
+      "n_chars": 255959,
+      "n_needles": 8,
+      "position": 23,
+      "total_messages": 272,
+      "vanilla_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 16415.85280000072,
+        "response": "WXtJZTFAo1**Title: Bear Necessities**\n\n*Characters:*\n\n- **Grizzly**: A wise, old bear with a gruff demeanor.\n- **Cubsby**: A young, curious bear cub with endless energy.\n- **Moona**: A night-loving bear with a mystical aura.\n- **Scene: A cozy clearing in the forest. The sun is setting, casting a golden glow. Grizzly is sitting on a log, smoothing the rough surface with his paw. Cubsby is bouncing around, trying to catch fireflies. Moona is nearby, sitting with eyes closed, sniffing the night air.*\n\n---\n\n**Grizzly**: (grumbling) Cubsby, settle down. The forest is settling in for the night, and so should you.\n\n**Cubsby**: (bounding over) But Grizzly, look at the fireflies! They dance around like little stars. Why do they only shine at night?\n\n**Grizzly**: (softening) The world has its rhythms, little one. Fireflies light up the night, just like the sun brightens the day. And you need rest if you want to greet both.\n\n**Moona**: (eyes still closed, speaking softly) The night holds secrets, Cubsby. Listen closely, and you'll hear the whispers of the trees.\n\n**Cubsby**: (sitting down, intrigued) What do they whisper, Moona?\n\n**Moona**: (smiling) Stories of old, tales of heroes who roamed these woods, just like us. If you listen carefully, you might even hear secrets meant just for you.\n\n**Cubsby**: (looking around with wide eyes) Really? What secrets?\n\n**Grizzly**: (chuckles) If we told you, they wouldn't be secrets, now would they?\n\n**Moona**: Shh, listen... (pauses, as the sound of rustling leaves fills the air)\n\n*Cubsby sits still, finally silent, gazing around with wonder. A gentle breeze rustles through the leaves, and somewhere in the distance, a lone wolf howls.*\n\n**Cubsby**: (whispering) I heard it. I think I heard something.\n\n**Grizzly**: (nods) Good. Remember, Cubsby, the forest will always speak, but only if your heart is open and your spirit is still.\n\n**Cubsby**: (snuggling close to Grizzly) I'll listen, every night. I promise.\n\n**Moona**: (opening eyes, looking lovingly at Cubsby) Then you are wiser than most. Now, rest. The moon will watch over you, as will we.\n\n*The three bears settle down, as the fireflies continue their dance. The forest hums with the quiet symphony of the night.*\n\n*The lights dim, leaving only the glow of the fireflies flickering softly.*\n\n**Curtain.**",
+        "response_head": "WXtJZTFAo1**Title: Bear Necessities**\n\n*Characters:*\n\n- **Grizzly**: A wise, old bear with a gruff demeanor.\n- **Cubsby**: A young, curious bear cub with endless energy.\n- **Moona**: A night-loving be",
+        "response_len": 2322,
+        "error": "",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 23791.595800001232,
+        "response": "WXtJZTFAo1**Title: Bear Necessities**\n\n*Characters:*\n\n- **Grizzly**: A wise, old bear with a gruff demeanor.\n- **Cubsby**: A young, curious bear cub with endless energy.\n- **Moona**: A night-loving bear with a mystical aura.\n- **Scene: A cozy clearing in the forest. The sun is setting, casting a golden glow. Grizzly is sitting on a log, smoothing the rough surface with his paw. Cubsby is bouncing around, trying to catch fireflies. Moona is nearby, sitting with eyes closed, sniffing the night air.*\n\n---\n\n**Grizzly**: (grumbling) Cubsby, settle down. The forest is settling in for the night, and so should you.\n\n**Cubsby**: (bounding over) But Grizzly, look at the fireflies! They dance around like little stars. Why do they only shine at night?\n\n**Grizzly**: (softening) The world has its rhythms, little one. Fireflies light up the night, just like the sun brightens the day. And you need rest if you want to greet both.\n\n**Moona**: (eyes still closed, speaking softly) The night holds secrets, Cubsby. Listen closely, and you'll hear the whispers of the trees.\n\n**Cubsby**: (sitting down, intrigued) What do they whisper, Moona?\n\n**Moona**: (smiling) Stories of old, tales of heroes who roamed these woods, just like us. If you listen carefully, you might even hear secrets meant just for you.\n\n**Cubsby**: (looking around with wide eyes) Really? What secrets?\n\n**Grizzly**: (chuckles) If we told you, they wouldn't be secrets, now would they?\n\n**Moona**: Shh, listen... (pauses, as the sound of rustling leaves fills the air)\n\n*Cubsby sits still, finally silent, gazing around with wonder. A gentle breeze rustles through the leaves, and somewhere in the distance, a lone wolf howls.*\n\n**Cubsby**: (whispering) I heard it. I think I heard something.\n\n**Grizzly**: (nods) Good. Remember, Cubsby, the forest will always speak, but only if your heart is open and your spirit is still.\n\n**Cubsby**: (snuggling close to Grizzly) I'll listen, every night. I promise.\n\n**Moona**: (opening eyes, looking lovingly at Cubsby) Then you are wiser than most. Now, rest. The moon will watch over you, as will we.\n\n*The three bears settle down, as the fireflies continue their dance. The forest hums with the quiet symphony of the night.*\n\n*The lights dim, leaving only the glow of the fireflies flickering softly.*\n\n**Curtain.**",
+        "response_head": "WXtJZTFAo1**Title: Bear Necessities**\n\n*Characters:*\n\n- **Grizzly**: A wise, old bear with a gruff demeanor.\n- **Cubsby**: A young, curious bear cub with endless energy.\n- **Moona**: A night-loving be",
+        "response_len": 2322,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "false",
+          "x-cortex-original-messages": "272",
+          "x-cortex-kept-messages": "272",
+          "x-cortex-recap-tokens": "0"
+        },
+        "prompt_tokens": 92830,
+        "completion_tokens": 916
+      }
+    },
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 824,
+      "bucket": "L",
+      "n_chars": 1001046,
+      "n_needles": 8,
+      "position": 201,
+      "total_messages": 1094,
+      "vanilla_opus": {
+        "status": "ok",
+        "score": 0.03333333333333333,
+        "score_lenient": 0.03333333333333333,
+        "latency_ms": 20758.582999998907,
+        "response": "kdJwPiz7wOIn the oven warmth, sweet magic blooms,  \nA dance of flour and sugar, gentle perfumes.  \nGolden discs with hidden tales to share,  \nA delight in every bite, beyond compare.  \n\nChocolate chips like stars in doughy skies,  \nWalnuts, raisins, flavors that surprise.  \nOatmeal whispers of rustic, hearty cheer,  \nCinnamon sprinkles a festive atmosphere.  \n\nSoft and chewy, or with a crisp embrace,  \nEach cookie crafted finds its rightful place.  \nPeanut butter whispers soft, nutty dreams,  \nWhile ginger snaps echo winter's frosty gleams.  \n\nFrom childhood kitchens to warm afternoon,  \nThey cradle memories in their tender tune.  \nGlass of milk beside them, steadfast and true,  \nA perfect pairing, a classic duet, we all knew.  \n\nIn the quiet night or bustling light of day,  \nCookies bring comfort in their sweet array.  \nA simple joy, wrapped in a sugared guise,  \nA testament to love baked and on the rise.  \n\nSo let us celebrate the cookie's gentle charm,  \nA humble treat that holds the world in its palm.  \nFrom the mixer\u2019s whirl to the baking sheet\u2019s song,  \nA timeless gift that brings smiles all along.",
+        "response_head": "kdJwPiz7wOIn the oven warmth, sweet magic blooms,  \nA dance of flour and sugar, gentle perfumes.  \nGolden discs with hidden tales to share,  \nA delight in every bite, beyond compare.  \n\nChocolate chip",
+        "response_len": 1121,
+        "error": "",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 20104.124699999375,
+        "response": "kdJwPiz7wOIn a warm and cozy kitchen nook,  \nLies the magic of a recipe book.  \nFlour spills like a dusting snow,  \nIn the gentle light of a candle's glow.  \n\nSugar crystals catch the gleam,  \nAs butter melts in a golden stream.  \nVanilla whispers in the air,  \nA promise of delights to share.  \n\nChocolate chips like hidden gems,  \nTucked in mounds of doughy hems.  \nThe oven hums a gentle song,  \nAs cookies bake where they belong.  \n\nEach minute ticked by the clock face slow,  \nBrings them to life with a tender glow.  \nTheir aroma weaves through the air,  \nA temptation that's beyond compare.  \n\nGolden-brown and warm to touch,  \nA simple pleasure, loved so much.  \nCrisp and chewy, soft and sweet,  \nA cookie's joy is pure and complete.  \n\nWith each bite, a world of bliss,  \nA sweet moment not to miss.  \nFor cookies hold a special place,  \nA timeless love in every trace.",
+        "response_head": "kdJwPiz7wOIn a warm and cozy kitchen nook,  \nLies the magic of a recipe book.  \nFlour spills like a dusting snow,  \nIn the gentle light of a candle's glow.  \n\nSugar crystals catch the gleam,  \nAs butt",
+        "response_len": 879,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "1094",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "4626"
+        },
+        "prompt_tokens": 13554,
+        "completion_tokens": 365
+      }
+    },
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 1048,
+      "bucket": "XL",
+      "n_chars": 4973969,
+      "n_needles": 8,
+      "position": 31,
+      "total_messages": 5303,
+      "vanilla_opus": {
+        "status": "http_error",
+        "score": 0.0,
+        "score_lenient": 0.0,
+        "latency_ms": 1011.876000000484,
+        "response": "",
+        "response_head": "",
+        "response_len": 0,
+        "error": "",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 0.9968354430379747,
+        "score_lenient": 0.9968354430379747,
+        "latency_ms": 53547.731500002556,
+        "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let's spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let's fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
+        "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
+        "response_len": 642,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "5303",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "4826"
+        },
+        "prompt_tokens": 12619,
+        "completion_tokens": 272
+      }
+    },
+    {
+      "src_shard": "8needle/8needle_0.parquet",
+      "row_idx": 1048,
+      "bucket": "XL",
+      "n_chars": 9846504,
+      "n_needles": 8,
+      "position": 31,
+      "total_messages": 10615,
+      "vanilla_opus": {
+        "status": "http_error",
+        "score": 0.0,
+        "score_lenient": 0.0,
+        "latency_ms": 1194.9416999996174,
+        "response": "",
+        "response_head": "",
+        "response_len": 0,
+        "error": "",
+        "headers": null,
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "cortex_opus": {
+        "status": "ok",
+        "score": 1.0,
+        "score_lenient": 1.0,
+        "latency_ms": 84532.57079999821,
+        "response": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece, there's a special kind of magic in every slice. \ud83c\udf70\u2728 \n\nFrom birthdays to random Thursdays, cakes are the perfect way to celebrate life's sweet moments. \ud83d\ude0b\ud83d\udc95 Share your favorite cake flavor below and let\u2019s spread the sweetness around! #CakeLove #SweetTooth #BakingJoy\n\n\ud83d\udcf8 If you've got a gorgeous cake pic, drop it in the comments or tag me in your posts! Let\u2019s fill this space with mouthwatering creations and sprinkle some sweetness all over \ud83c\udf65\ud83d\ude0d",
+        "response_head": "x4kWM2QtZz\ud83c\udf82\ud83e\udd73 Just baked and ready to indulge! Nothing brings joy quite like a freshly baked cake. Whether it's a rich chocolate dream, a light and zesty lemon delight, or a classic vanilla masterpiece",
+        "response_len": 642,
+        "error": "",
+        "headers": {
+          "x-cortex-proxy": "anthropic",
+          "x-cortex-virtualized": "true",
+          "x-cortex-original-messages": "10615",
+          "x-cortex-kept-messages": "7",
+          "x-cortex-recap-tokens": "4972"
+        },
+        "prompt_tokens": 12364,
+        "completion_tokens": 274
+      }
+    }
+  ],
+  "summary": {
+    "per_bucket": {
+      "M": {
+        "vanilla_opus": {
+          "n": 1,
+          "mean_score": 1.0,
+          "mean_score_lenient": 1.0,
+          "perfect_rate_lenient": 1.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "mean_score": 1.0,
+          "mean_score_lenient": 1.0,
+          "perfect_rate_lenient": 1.0
+        }
+      },
+      "L": {
+        "vanilla_opus": {
+          "n": 1,
+          "mean_score": 0.03333333333333333,
+          "mean_score_lenient": 0.03333333333333333,
+          "perfect_rate_lenient": 0.0
+        },
+        "cortex_opus": {
+          "n": 1,
+          "mean_score": 1.0,
+          "mean_score_lenient": 1.0,
+          "perfect_rate_lenient": 1.0
+        }
+      }
+    },
+    "overall": {
+      "vanilla_opus": {
+        "n": 4,
+        "mean_score": 0.25833333333333336,
+        "mean_score_lenient": 0.25833333333333336,
+        "perfect_rate": 0.25,
+        "perfect_rate_lenient": 0.25
+      },
+      "cortex_opus": {
+        "n": 4,
+        "mean_score": 0.9992088607594937,
+        "mean_score_lenient": 0.9992088607594937,
+        "perfect_rate": 1.0,
+        "perfect_rate_lenient": 1.0
+      }
+    }
+  }
+}
