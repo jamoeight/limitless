@@ -95,8 +95,11 @@ def main(src: str = "results/opus_vs_cortex/mrcr_v3.json",
     ax.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
     ax.set_ylabel("MRCR v2 8-needle score (lenient)", fontsize=12)
     ax.set_title("MRCR v2 8-needle scaling — vanilla Opus 4.7 vs Opus 4.7 + cortex",
-                 fontsize=14, fontweight="bold", pad=14)
-    ax.legend(loc="lower left", framealpha=0.9, fontsize=12, frameon=True)
+                 fontsize=14, fontweight="bold", pad=36)
+    # Legend above the chart (between title and bars) — keeps it off the
+    # 256K vanilla 16% bar at lower-left and the cortex 100% bars elsewhere.
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2,
+              framealpha=0.95, fontsize=12, frameon=True)
     ax.grid(axis="y", alpha=0.25, linestyle="--")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
