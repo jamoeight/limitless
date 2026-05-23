@@ -57,3 +57,8 @@ logs/
 .env.local
 *.key
 research/
+
+# Claude Code per-user state (permissions allowlist etc.). Project-wide
+# settings live in .claude/settings.json (committed).
+.claude/settings.local.json
+.planning/

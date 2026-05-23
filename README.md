@@ -199,57 +199,107 @@ lms load text-embedding-nomic-embed-text-v1.5 --gpu max --ttl 86400
 
 ---
 
-### Path A — Claude Code MCP server with Haiku judge (no API key needed)
+### Path A — Claude Code with seamless auto-memory (no API key needed)
 
-Drop timegraph into Claude Code as an MCP server. The 5 tools
-(`remember`, `add_fact`, `recall`, `query`, `attest`) become available in
-every Claude Code session opened in this repo. Judge calls inside those
-tools route through your local `claude -p --model haiku` — using your
-Claude Code subscription, no `ANTHROPIC_API_KEY` required.
+Three things wire together so Claude Code gains persistent memory across
+sessions **without you ever calling a tool by hand**:
+
+1. **MCP server** — exposes the 5 timegraph tools (`remember`, `add_fact`,
+   `recall`, `query`, `attest`) for when Claude wants explicit access.
+2. **`UserPromptSubmit` hook** — runs before each user turn. Embeds the
+   prompt, cosine-ranks against prior episodes, and injects the matching
+   facts as `additionalContext`. Claude sees relevant memory unprompted.
+3. **`Stop` hook** — runs after each assistant turn. Reads the transcript,
+   takes the last user→assistant pair, and stores it as an episode.
+   Tomorrow's session recalls today's.
+
+**Opus generation never goes through `claude -p`.** Claude Code keeps
+using its native OAuth path — the June 2026 `-p` pricing change doesn't
+apply to your normal Claude Code usage. The only `-p` calls are the
+bounded Haiku 4.5 judge inside timegraph ops (fact extraction during
+ingest, conflict resolution during `query`). Measured in cents per
+session.
 
 ```bash
-# 1. Verify the claude CLI is on PATH and logged in.
+# 1. Verify claude CLI is logged in and Haiku works.
 claude --version
 claude -p --model haiku "say ok"              # should print "ok"
 
-# 2. Register timegraph as a project-scoped MCP server.
+# 2. Register the MCP server (project scope).
 claude mcp add timegraph \
   --scope project \
   -e TG_JUDGE_BACKEND=claude_cli \
   -e TG_JUDGE_CLAUDE_MODEL=haiku \
+  -e TG_MCP_GROUP_ID=claude-code \
   -- "$(pwd)/.venv/Scripts/timegraph-mcp.exe"
 
-# 3. Confirm it's connected.
-claude mcp list                               # → timegraph: ✓ Connected
+# 3. The hook config is already in this repo at .claude/settings.json.
+#    Just open a new session — approve project hooks when prompted.
+claude
 ```
 
-That writes `.mcp.json` at the repo root:
+The hooks call two scripts in `scripts/` of this repo. The settings file
+that wires them:
 
 ```json
 {
-  "mcpServers": {
-    "timegraph": {
-      "type": "stdio",
-      "command": "<repo>/.venv/Scripts/timegraph-mcp.exe",
-      "env": {
-        "TG_JUDGE_BACKEND": "claude_cli",
-        "TG_JUDGE_CLAUDE_MODEL": "haiku"
-      }
-    }
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{
+      "type": "command",
+      "command": ".venv/Scripts/python.exe scripts/hook_recall.py",
+      "timeout": 15
+    }]}],
+    "Stop": [{"hooks": [{
+      "type": "command",
+      "command": ".venv/Scripts/python.exe scripts/hook_ingest.py",
+      "timeout": 30
+    }]}]
   }
 }
 ```
 
-Open a new `claude` session in this directory, approve the project MCP
-server prompt, and the 5 tools are live. First tool call blocks ~15 s
-while `claude -p --model haiku` warms up; subsequent calls cache.
+#### Adding auto-memory to another project
 
-Use `--scope user` instead of `--scope project` to make timegraph
-available from any directory.
+You don't need to clone, copy scripts, or install anything in the other
+project — point its `.claude/settings.json` at the absolute paths of
+this repo's scripts, passing a unique `--group-id` so memories stay
+isolated. One backend, isolated namespace per project:
 
-**Wiring a non-Claude-Code client to the same backend** — start the
-cortex HTTP proxy on `:8080` and any OpenAI- or Anthropic-compatible
-client (opencode, continue.dev, an SDK) can use it:
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [{"hooks": [{
+      "type": "command",
+      "command": "C:/path/to/timegraph-mcp/.venv/Scripts/python.exe C:/path/to/timegraph-mcp/scripts/hook_recall.py --group-id myproject",
+      "timeout": 15
+    }]}],
+    "Stop": [{"hooks": [{
+      "type": "command",
+      "command": "C:/path/to/timegraph-mcp/.venv/Scripts/python.exe C:/path/to/timegraph-mcp/scripts/hook_ingest.py --group-id myproject",
+      "timeout": 30
+    }]}]
+  }
+}
+```
+
+Add `.mcp.json` in the other project the same way (with `TG_MCP_GROUP_ID=myproject`)
+to also expose the 5 tools. Memories are isolated per `group_id`;
+ingest under `myproject` only surfaces in recalls scoped to `myproject`.
+
+#### Latency notes
+
+- **Recall hook**: ~2–5 s before each user turn (embedding + Qdrant
+  cosine lookup). Visible as a brief pause.
+- **Ingest hook**: runs after the assistant response is already on
+  screen — doesn't block UX. Internally fires one `-p --model haiku`
+  call to extract facts (~1 s) + writes to Neo4j/Qdrant (~1 s).
+- **No `-p` for Opus.** Worth saying twice: only the cheap judge uses
+  `-p`. Your subscription Opus usage is unchanged.
+
+#### Wiring a non-Claude-Code client
+
+For opencode, continue.dev, an SDK, etc., start the cortex HTTP proxy
+on `:8080` and point the client there:
 
 ```bash
 TG_JUDGE_BACKEND=claude_cli \
@@ -265,12 +315,10 @@ CORTEX_VERBATIM_RECALL_K=24 \
   .venv/Scripts/python.exe -m cortex.server &
 ```
 
-Trade-off on the HTTP proxy path: each upstream call shells out to
-`claude -p` (~10–20 s subprocess overhead vs ~3 s direct API). Worth it
-for *"I already pay for Claude Code — give me infinite context on top of
-it"*; the MCP path above is faster for in-Claude-Code use because Claude
-Code talks to Anthropic natively and only invokes the timegraph tools
-on demand.
+This path **does** use `-p` for upstream generation — necessary because
+non-Claude-Code clients can't piggyback Claude Code's native OAuth — so
+the June pricing change does apply here. Use this path if your client
+isn't Claude Code; use the hook setup above if it is.
 
 ---
 

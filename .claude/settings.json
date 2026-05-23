@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe scripts/hook_recall.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe scripts/hook_ingest.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

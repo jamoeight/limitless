@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "timegraph": {
+      "type": "stdio",
+      "command": "C:/Users/Jameson/Downloads/ClaudeCode/contextMCP/timegraph-mcp/.venv/Scripts/timegraph-mcp.exe",
+      "args": [],
+      "env": {
+        "TG_JUDGE_BACKEND": "claude_cli",
+        "TG_JUDGE_CLAUDE_MODEL": "haiku",
+        "TG_MCP_GROUP_ID": "claude-code"
+      }
+    }
+  }
+}
