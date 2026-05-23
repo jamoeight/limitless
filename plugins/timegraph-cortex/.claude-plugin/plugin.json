@@ -1,6 +1,6 @@
 {
   "name": "timegraph-cortex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Automatic memory for Claude Code. Every turn is ingested into a temporal graph; every prompt is augmented with relevant prior context. No manual recall calls.",
   "author": {
     "name": "Jameson",
