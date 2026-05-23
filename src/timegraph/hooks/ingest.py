@@ -22,7 +22,8 @@ from pathlib import Path
 # timegraph.ops import — those instantiate Settings which reads env once.
 os.environ.setdefault("TG_JUDGE_BACKEND", "claude_cli")
 os.environ.setdefault("TG_JUDGE_CLAUDE_MODEL", "haiku")
-os.environ.setdefault("TG_USE_JUDGE_FOR_EXTRACTION", "true")
+os.environ.setdefault("TG_EXTRACTOR_BACKEND", "claude_cli")
+os.environ.setdefault("TG_EXTRACTOR_CLAUDE_MODEL", "haiku")
 
 from timegraph.project_id import derive_group_id  # noqa: E402
 

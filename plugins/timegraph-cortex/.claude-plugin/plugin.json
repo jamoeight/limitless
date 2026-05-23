@@ -16,7 +16,8 @@
       "env": {
         "TG_JUDGE_BACKEND": "claude_cli",
         "TG_JUDGE_CLAUDE_MODEL": "haiku",
-        "TG_USE_JUDGE_FOR_EXTRACTION": "true"
+        "TG_EXTRACTOR_BACKEND": "claude_cli",
+        "TG_EXTRACTOR_CLAUDE_MODEL": "haiku"
       }
     }
   },

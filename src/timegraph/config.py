@@ -66,6 +66,17 @@ class Settings(BaseSettings):
     # Phase 0 evals before the second model is downloaded/loaded.
     use_judge_for_extraction: bool = Field(False)
 
+    # Extractor backend selection — mirrors judge_backend. Plugin installs
+    # without LM Studio set this to "claude_cli" so the Stop hook can extract
+    # facts via the caller's OAuth session instead of a phantom LM Studio.
+    extractor_backend: str = Field("lm_studio", description="lm_studio | claude_cli")
+    extractor_claude_model: str = Field(
+        "haiku",
+        description="Model alias for --model when extractor_backend=claude_cli.",
+    )
+    extractor_claude_budget_usd: float = Field(0.20)
+    extractor_claude_timeout_s: float = Field(60.0)
+
     # --- Storage ---
     neo4j_uri: str = Field("bolt://localhost:7687")
     neo4j_user: str = Field("neo4j")

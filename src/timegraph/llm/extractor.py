@@ -10,6 +10,8 @@ Spec target: F1 ≥0.70 vs hand-labeled facts at p95 ≤8s per episode.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +23,7 @@ from jinja2 import Environment, FileSystemLoader
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from timegraph.config import get_settings
-from timegraph.llm.schemas import EXTRACTOR_RESPONSE_FORMAT
+from timegraph.llm.schemas import EXTRACTOR_RESPONSE_FORMAT, EXTRACTOR_SCHEMA
 from timegraph.types import Fact
 
 log = structlog.get_logger(__name__)
@@ -52,6 +54,18 @@ class ExtractorClient:
         tpl = self._jinja.get_template("extract.j2")
         prompt = tpl.render(content=episode_content, event_time=event_time.isoformat())
 
+        backend = self.s.extractor_backend
+        if backend == "claude_cli":
+            raw, latency_ms = await self._extract_via_claude_cli(prompt)
+        elif backend == "lm_studio":
+            raw, latency_ms = await self._extract_via_lm_studio(prompt)
+        else:
+            raise ValueError(f"unknown extractor_backend: {backend!r}")
+
+        facts = self._parse_to_facts(raw, event_time, session_id, source)
+        return facts, latency_ms
+
+    async def _extract_via_lm_studio(self, prompt: str) -> tuple[str, float]:
         body: dict[str, Any] = {
             "model": self._model_name,
             "messages": [{"role": "user", "content": prompt}],
@@ -74,8 +88,67 @@ class ExtractorClient:
         if not raw:
             log.error("extractor returned empty content + reasoning_content", message=msg)
             raise ValueError("empty extractor response")
-        facts = self._parse_to_facts(raw, event_time, session_id, source)
-        return facts, latency_ms
+        return raw, latency_ms
+
+    async def _extract_via_claude_cli(self, prompt: str) -> tuple[str, float]:
+        # Mirror JudgeClient._judge_via_claude_cli — shell out to `claude -p`
+        # under the caller's OAuth session. No LM Studio required.
+        argv = [
+            self.s.judge_claude_cli_path,
+            "-p",
+            "--no-session-persistence",
+            "--model",
+            self.s.extractor_claude_model,
+            "--output-format",
+            "json",
+            "--json-schema",
+            json.dumps(EXTRACTOR_SCHEMA),
+            "--tools",
+            "",
+            "--disable-slash-commands",
+            "--max-budget-usd",
+            str(self.s.extractor_claude_budget_usd),
+        ]
+
+        t0 = time.perf_counter()
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(prompt.encode("utf-8")),
+                timeout=self.s.extractor_claude_timeout_s,
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise ValueError(f"claude -p timed out after {self.s.extractor_claude_timeout_s}s")
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        if proc.returncode != 0:
+            err = stderr.decode("utf-8", errors="replace")[:500]
+            raise ValueError(f"claude -p exit {proc.returncode}: {err}")
+
+        raw = stdout.decode("utf-8", errors="replace")
+        try:
+            envelope = json.loads(raw)
+        except json.JSONDecodeError as e:
+            log.error("claude -p returned non-JSON", head=raw[:200])
+            raise ValueError(f"claude -p non-JSON stdout: {e}") from e
+
+        if envelope.get("is_error"):
+            errs = envelope.get("errors") or [envelope.get("result", "unknown")]
+            raise ValueError(f"claude -p error: {errs}")
+
+        structured = envelope.get("structured_output")
+        if not structured:
+            log.error("claude -p missing structured_output", envelope_keys=list(envelope.keys()))
+            raise ValueError("claude -p returned no structured_output")
+
+        return json.dumps(structured), latency_ms
 
     @staticmethod
     def _parse_to_facts(
