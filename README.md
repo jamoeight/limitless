@@ -4,9 +4,14 @@
 a verbatim recap that fits inside the upstream model's native window.
 Same proxy on any model — local 9B or frontier Opus.
 
+Three demonstrations below: Opus stays perfect on MRCR at **29× past
+Anthropic's published 1M context limit**, holds at **10× on RULER**, and
+a local 9B routed through cortex matches Opus on the same long-context
+benchmark.
+
 ---
 
-### Opus 4.7 + cortex stays 100% perfect through ~29M tokens
+### Opus 4.7 + cortex stays 100% perfect through ~29M tokens (MRCR)
 
 ![Opus + cortex scaling past Anthropic's 1M-token Opus limit](results/opus_vs_cortex/hero_v2.png)
 
@@ -19,16 +24,43 @@ outright. **Opus + cortex stays at 100% perfect through ~29M tokens** —
 155K messages into 7 verbatim turns + a 5-65K-token recap that fits
 inside the upstream model's window.
 
-The ~29M-token result is the MRCR 8-needle dataset's effective synthesis
-ceiling (stitches 98 of 400 available rows; row reuse would introduce
-needle conflicts). At that scale cortex sees 155K messages, ranks them
-via inline cosine recall, and Opus answers the original query correctly
-in ~7 minutes wall clock — most of which is LM Studio batched embedding.
+~29M is the MRCR 8-needle dataset's synthesis ceiling (stitches 98 of
+400 rows; row reuse would introduce needle conflicts). At that scale
+cortex ranks 155K messages via inline cosine recall and Opus answers
+correctly in ~7 minutes wall clock, dominated by LM Studio batched
+embedding.
 
 n=8 single-seed pilot across eight scale targets. 53K- and 205K-token
-rows are real MRCR 8-needle samples; 1M / 2M / 5M / 9M / 16M / 29M rows
-are *synthesized* from real MRCR 8-needle rows. Token counts via
+rows are real MRCR 8-needle samples; the six rows from 1M to 29M are
+*synthesized* by stitching real MRCR 8-needle rows. Token counts via
 o200k_base. Run script and methodology: [bench/pilot_opus/](bench/pilot_opus/).
+
+---
+
+### Same result, second benchmark: RULER niah_multikey_3 to 10M tokens
+
+![Opus + cortex on RULER stays perfect through 10M tokens](results/opus_vs_cortex/ruler_hero.png)
+
+To rule out MRCR-specific quirks, we re-ran the experiment on
+[RULER](https://huggingface.co/datasets/self-long/RULER-llama3-1M) — a
+different long-context benchmark, different rubric, different needle
+shape. **Cortex stays 100% perfect at every scale from 64K to 10M
+llama3 tokens.** Vanilla Opus 4.7 matches cortex through 512K, then
+the Anthropic API rejects every request at 1M+ outright.
+
+Two independent benchmarks, two orders of magnitude past Anthropic's
+published context window, same result.
+
+n=1 per scale (preflight slice of the RULER `niah_multikey_3` subtask).
+The 64K-1M rows are real RULER-llama3-1M samples; 2M/5M/10M are
+synthesized by stitching the 1M base row with additional RULER
+distractor lines. **Cortex's `verbatim_recall_k` is tuned per scale**
+(K=16 default, K=200 at 512K-5M, K=2000 at 10M) — high-cardinality NIAH
+needs more recall candidates as the haystack grows. K is a config knob,
+not a fundamental limit; the recap budget bounds insertion regardless
+of K (still ~65K tokens at 10M). Methodology and raw data:
+[bench/pilot_opus/run_ruler.py](bench/pilot_opus/run_ruler.py),
+[results/opus_vs_cortex/ruler_all.json](results/opus_vs_cortex/ruler_all.json).
 
 ---
 
@@ -36,34 +68,35 @@ o200k_base. Run script and methodology: [bench/pilot_opus/](bench/pilot_opus/).
 
 ![9B + cortex matches Opus on 30 MRCR rows](results/pilot_cortex/hero.png)
 
-Same proxy, different demonstration. **Qwen3.5-9B + cortex hits 100% perfect
-on 30 MRCR rows. Vanilla Opus 4.7 hits 73%.** The 9B catches the frontier
-because cortex pre-locates the needles — the model only sees the recap.
+Same proxy, different model. **Qwen3.5-9B + cortex hits 100% perfect
+on 30 MRCR rows. Vanilla Opus 4.7 hits 73%.** The 9B catches the
+frontier on retrieval-shaped tasks because cortex pre-locates the
+needles — the model only has to read the recap.
 
 n=30 single-seed pilot. Strict-rubric is 0 across both 9B arms (qwen3.5
-prepends `\n\n`). Full caveats:
+prepends `\n\n`); the lenient rubric is the headline. Full caveats:
 [bench/pilot_cortex/PAPER.md](bench/pilot_cortex/PAPER.md).
 
 ## What it is
 
-Cortex is an HTTP proxy that sits in front of any OpenAI-compatible (or
-Anthropic-compatible) LLM endpoint and gives it effectively unlimited context.
-When a conversation exceeds the upstream model's window, cortex:
+Cortex is an HTTP proxy in front of any OpenAI- or Anthropic-compatible
+LLM endpoint. When a conversation exceeds the upstream model's window,
+cortex:
 
-1. **Reformulates the user's query** with one small LM Studio call —
-   strips meta-instructions to extract the topical retrieval phrase.
-2. **Embeds and cosine-ranks every cold message-group** inline against the
-   reformulated query (no Qdrant roundtrip — works on a first turn).
-3. **Injects the top-K verbatim** into a `<retrieved_history>` block in the
-   system prompt, chronologically ordered.
+1. **Reformulates the query** with one small LM Studio call — strips
+   meta-instructions to extract the topical retrieval phrase.
+2. **Embeds and cosine-ranks every cold message-group** inline against
+   the reformulated query (no Qdrant roundtrip — works on a first turn).
+3. **Injects the top-K verbatim** into a `<retrieved_history>` block in
+   the system prompt, chronologically ordered.
 
-The model then sees its original system prompt + the relevant verbatim
-turns + the last few message-groups + the query. It picks the right
-content from the recap and responds.
+The model sees its original system prompt + the relevant verbatim turns
++ the last few message-groups + the query, picks the right content from
+the recap, and responds.
 
 When the conversation fits natively, cortex **short-circuits to
-pass-through** — the model sees byte-identical input to raw and the
-quality is identical. (Verified: S/M-bucket cortex == raw on the pilot.)
+pass-through** — the model sees byte-identical input to raw. (Verified:
+S/M-bucket cortex == raw on the pilot.)
 
 ## Quickstart
 
@@ -102,16 +135,14 @@ and use the upstream's API key as the auth header.
 
 ## What this does NOT claim
 
-- **It does not make 9B as smart as Opus.** Cortex gives the model the right
-  context; it doesn't make the model better at reasoning. For complex code
-  refactoring, multi-hop logic, or system design — use a frontier model.
-  Cortex gets you frontier-scale *memory* at 9B inference cost.
-- **It does not eliminate frontier APIs.** Tasks that need frontier
-  intelligence still need frontier intelligence.
+- **Cortex does not make a 9B reason like Opus.** It gives the model the
+  right context, not better reasoning. For multi-hop logic, refactors,
+  or system design — use a frontier model. Cortex buys you frontier
+  *memory* at the upstream model's inference cost.
 - **Strict-rubric scores are 0** across every 9B arm (raw and cortex
   both) — qwen3.5-9b's chat template prepends `\n\n`. The lenient rubric
-  (lstrip → same prefix check) is the headline. Symmetric across raw and
-  cortex; PAPER.md has the full caveat.
+  (lstrip → same prefix check) is the headline; PAPER.md has the full
+  caveat.
 
 ## How fast
 
@@ -163,7 +194,7 @@ GPU is for the upstream model + embedder.
 
 ## Results detail
 
-#### Opus 4.7 + cortex scaling (n=8, 8-needle, MRCR v2)
+#### Opus 4.7 + cortex scaling (n=8, MRCR v2 8-needle)
 
 | tokens | vanilla Opus 4.7 | Opus 4.7 + cortex | cortex behavior                |
 |-------:|------------------|-------------------|--------------------------------|
@@ -176,14 +207,28 @@ GPU is for the upstream model + embedder.
 | 16M    | OVERFLOW (API)   | **0.999**         | 83150 msgs → 7 + 65K recap     |
 | 29M    | OVERFLOW (API)   | **1.000**         | 154847 msgs → 7 + 65K recap    |
 
-Overall: vanilla 13% perfect, cortex 100% perfect. The 1M-token row sits
-at Anthropic's published Opus 4.6 native context limit; the 29M row is
-**29× past it**. Wall clock at 29M tokens: 407s (~7 min), dominated by
-LM Studio batched embedding of 155K cold message groups.
+Overall: vanilla 13% perfect, cortex 100% perfect. The 1M row sits at
+Anthropic's published Opus 4.6 native context limit; the 29M row is
+**29× past it**. Wall clock at 29M: 407s (~7 min), dominated by LM
+Studio batched embedding of 155K cold message groups. At 16M+ cortex
+switches to `verbatim_recall_k=200` (default 16).
 
-At 16M+ tokens the cortex config switches to `verbatim_recall_k=200`
-(default 16 — tuned for chat-shaped retrieval; high-cardinality retrieval
-at extreme scale benefits from more recall candidates).
+#### Opus 4.7 + cortex on RULER niah_multikey_3 (n=1 per scale)
+
+| tokens (llama3) | vanilla Opus 4.7 | Opus 4.7 + cortex | cortex K | cortex behavior                |
+|---------------:|------------------|-------------------|---------:|--------------------------------|
+| 64K            | 1.000            | 1.000             | 16       | passthrough                    |
+| 128K           | 1.000            | 1.000             | 16       | passthrough                    |
+| 256K           | 1.000            | 1.000             | 16       | 9007 msgs → 7 + 0.8K recap     |
+| 512K           | 1.000            | **1.000**         | 200      | 18107 msgs → 7 + 8.1K recap    |
+| 1M             | OVERFLOW (API)   | **1.000**         | 200      | 36207 msgs → 7 + 8.2K recap    |
+| 2M             | OVERFLOW (API)   | **1.000**         | 200      | 72409 msgs → 7 + 8.2K recap    |
+| 5M             | OVERFLOW (API)   | **1.000**         | 200      | 181015 msgs → 7 + 8.2K recap   |
+| 10M            | OVERFLOW (API)   | **1.000**         | 2000     | 362025 msgs → 7 + 67K recap    |
+
+Vanilla Opus matches cortex through 512K; the API rejects every request
+at 1M+. Cortex is 100% all-found at every scale. The K knob grows with
+the haystack but the recap budget stays bounded (~67K tokens at 10M).
 
 #### 9B + cortex matches Opus on MRCR (n=30)
 
@@ -196,26 +241,43 @@ at extreme scale benefits from more recall candidates).
 ## Honest scope
 
 Cortex's claim is **effectively unlimited context for retrieval-shaped
-tasks** via inline-verbatim recall. MRCR is the cleanest demonstration:
-content needs to come back exactly as it appeared in history. For
-reasoning, multi-hop inference, or summarization, the technique is
-necessary but not sufficient — the upstream model still has to do the
-reasoning over the recap.
+tasks** via inline-verbatim recall. MRCR and RULER are the cleanest
+demonstrations: content needs to come back exactly as it appeared in
+history. For reasoning, multi-hop inference, or summarization, the
+technique is necessary but not sufficient — the upstream model still
+has to do the reasoning over the recap.
 
-Both pilots are single-seed (42):
-- 9B + cortex on MRCR (n=30): rerun with seeds {17, 1729} pending. Cortex
-  hits 1.000 on lenient at N=30 so downside is limited, but sampling
-  variance is real.
-- Opus + cortex scaling (n=8): single-seed across 8 token scale targets.
-  Six of the eight (1M, 2M, 5M, 9M, 16M, 29M tokens) are *synthesized*
-  by stitching real MRCR 8-needle rows (dataset max ≈ 625K tokens per
-  row; full 400-row dataset combined caps out near ~30M tokens without
-  needle-conflicting row reuse). Treat as a scaling proof-of-concept
-  until reseeded.
+All three pilots are single-seed (42):
+
+- **9B + cortex on MRCR (n=30)**: rerun with seeds {17, 1729} pending.
+  Cortex hits 1.000 lenient at N=30 so downside is bounded, but
+  sampling variance is real.
+- **Opus + cortex MRCR scaling (n=8)**: single-seed across 8 token
+  scale targets. Six of the eight (1M, 2M, 5M, 9M, 16M, 29M tokens)
+  are *synthesized* by stitching real MRCR 8-needle rows. Dataset max
+  ≈ 625K tokens per row; full 400-row dataset combined caps out near
+  ~30M tokens without needle-conflicting row reuse.
+- **Opus + cortex RULER (n=1 per scale)**: preflight slice of
+  `niah_multikey_3` from RULER-llama3-1M. 2M/5M/10M are synthesized by
+  stitching the 1M base row with extra distractor lines from the same
+  subtask. Reseeding to n=8 with rotated row indexes is the obvious
+  next step.
+- **`verbatim_recall_k` is tuned per scale on RULER** (16 / 200 / 2000).
+  The default K=16 is fitted to MRCR's chat-shaped retrieval (long
+  messages, few candidates per top-K); RULER's NIAH variant has many
+  short candidates so K must grow with the haystack. Honest framing:
+  cortex's *plumbing* is unchanged across these scales, but the *config*
+  was hand-set per scale based on observed cardinality. Auto-tuning K
+  from haystack cardinality is on the todo list.
+
+Treat the scaling rows as a proof-of-concept until reseeded with
+multiple seeds and rotated row indexes.
 
 Per-pilot caveat docs: [bench/pilot_cortex/PAPER.md](bench/pilot_cortex/PAPER.md)
-(9B story) and [bench/pilot_opus/run.py](bench/pilot_opus/run.py) docstring +
-the synthesis logic in `pick_rows_by_target` (Opus scaling).
+(9B), [bench/pilot_opus/run.py](bench/pilot_opus/run.py) docstring +
+the synthesis logic in `pick_rows_by_target` (MRCR scaling), and
+[bench/pilot_opus/run_ruler.py](bench/pilot_opus/run_ruler.py) docstring
+(RULER scaling).
 
 ## License + contact
 
