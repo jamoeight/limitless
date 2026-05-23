@@ -60,7 +60,20 @@ log = structlog.get_logger(__name__)
 # omit `session_id` on every call; episodes/facts get tied to the same MCP
 # session so we can audit later. Override per-call when you have something better.
 _DEFAULT_SESSION_ID = os.environ.get("TG_MCP_SESSION_ID") or f"mcp-{uuid.uuid4().hex[:12]}"
-_DEFAULT_GROUP_ID = os.environ.get("TG_MCP_GROUP_ID") or "default"
+
+# Per-project group_id by default: derives a stable slug from cwd, which Claude
+# Code sets to the project root when it spawns the MCP server. TG_MCP_GROUP_ID
+# or TG_GROUP_ID overrides this for users who want cross-project memory.
+def _default_group_id() -> str:
+    explicit = os.environ.get("TG_MCP_GROUP_ID")
+    if explicit:
+        return explicit
+    from timegraph.project_id import derive_group_id
+
+    return derive_group_id()
+
+
+_DEFAULT_GROUP_ID = _default_group_id()
 
 
 server = FastMCP("timegraph-mcp")

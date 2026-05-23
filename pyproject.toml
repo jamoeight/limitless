@@ -14,6 +14,7 @@ dependencies = [
     "sse-starlette>=2.1",
     "neo4j>=5.20",
     "qdrant-client>=1.12",
+    "fastembed>=0.4",
     "sentence-transformers>=3.0",
     "setfit>=1.1",
     "pydantic>=2.8",
@@ -44,7 +45,10 @@ bench = [
 ]
 
 [project.scripts]
+timegraph = "timegraph.cli:main"
 timegraph-mcp = "timegraph.mcp_server:main"
+timegraph-hook-ingest = "timegraph.hooks.ingest:main"
+timegraph-hook-recall = "timegraph.hooks.recall:main"
 cortex-serve = "cortex.server:main"
 
 [build-system]
@@ -53,6 +57,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/timegraph", "src/cortex"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/timegraph/data/docker-compose.yml" = "timegraph/data/docker-compose.yml"
 
 [tool.ruff]
 line-length = 100

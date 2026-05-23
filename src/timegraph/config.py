@@ -79,14 +79,33 @@ class Settings(BaseSettings):
     sqlite_provenance_path: str = Field("data/provenance.db")
 
     # --- Embedder ---
-    # Defaulting to LM Studio's nomic embedder (768D) since it's already loaded
-    # alongside the judge/extractor. The plan called for BGE-M3 (1024D) via
-    # sentence-transformers; we can swap by changing embedder_url to a local
-    # FastAPI BGE-M3 server and bumping embedder_dim. Architecture is dim-agnostic
-    # as long as embedder_dim matches what Qdrant collections were created with.
-    embedder_url: str = Field("http://127.0.0.1:1234/v1", description="OpenAI-compat /embeddings base URL")
-    embedder_model: str = Field("text-embedding-nomic-embed-text-v1.5")
-    embedder_dim: int = Field(768, description="MUST match what Qdrant collections were created with")
+    # Two backends. Default `fastembed` runs the model in-process via ONNX
+    # (no extra server, no API key, no LM Studio) — this is what the plugin
+    # install path uses. `openai_compat` keeps the HTTP-to-LM-Studio path
+    # for users who already have LM Studio running.
+    #
+    # Model + dim are deliberately UNCHANGED from the pre-plugin defaults:
+    # nomic-embed-text-v1.5 at 768D is what produced the MRCR / GraphWalks /
+    # BEAM benchmark numbers in the README. fastembed supports the same
+    # model identifier, so the swap is HTTP → in-process with byte-identical
+    # vectors. Existing Qdrant collections (768D) keep working — no migration.
+    embedder_backend: str = Field(
+        "fastembed",
+        description="fastembed (in-process ONNX, default) | openai_compat (HTTP /v1/embeddings)",
+    )
+    embedder_url: str = Field(
+        "http://127.0.0.1:1234/v1",
+        description="OpenAI-compat /embeddings base URL — only used when backend=openai_compat",
+    )
+    embedder_model: str = Field(
+        "nomic-ai/nomic-embed-text-v1.5",
+        description="fastembed: HuggingFace ID. openai_compat: model name as registered by the server "
+                    "(e.g. 'text-embedding-nomic-embed-text-v1.5' for LM Studio).",
+    )
+    embedder_dim: int = Field(
+        768,
+        description="MUST match Qdrant collections. nomic-embed-v1.5=768 (default, benchmarked).",
+    )
     embedder_timeout_s: float = Field(30.0)
     embedder_batch_size: int = Field(32)
 

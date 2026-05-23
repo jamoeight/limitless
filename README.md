@@ -178,113 +178,82 @@ time injection.
 
 ## Install
 
-Two supported paths. Both share the same backends (Neo4j + Qdrant + a local
-embedder) and the same proxy binary. They differ in **what runs the LLM
-calls**: the Claude Code path uses your existing `claude` subscription via
-the local CLI; the local-model path uses LM Studio + Qwen3.5-9B.
+Two supported paths. They share the same backends (Neo4j + Qdrant + an
+in-process fastembed embedder) and the same proxy binary. They differ in
+**what runs the LLM calls**: the Claude Code path uses your existing
+`claude` subscription via the local CLI; the local-model path uses LM
+Studio + Qwen3.5-9B.
 
-Shared prerequisites for both paths:
-
-```bash
-# Backends + Python package.
-docker compose up -d                          # Neo4j + Qdrant
-python -m venv .venv && .venv/Scripts/pip install -e .
-docker compose exec -T qdrant true            # wait for healthy
-.venv/Scripts/python.exe -m timegraph.storage.schema --apply
-
-# Embedder — required for verbatim recall on both paths.
-# Install LM Studio (https://lmstudio.ai) and load the embedder:
-lms load text-embedding-nomic-embed-text-v1.5 --gpu max --ttl 86400
-```
+Path A prerequisites: Docker, Python 3.11+, the `claude` CLI on PATH.
+Path B prerequisites additionally need LM Studio for the upstream model.
 
 ---
 
-### Path A — Claude Code with seamless auto-memory (no API key needed)
+### Path A -- Claude Code plugin (one-command install, recommended)
 
-Three things wire together so Claude Code gains persistent memory across
-sessions **without you ever calling a tool by hand**:
+`pipx install` plus `timegraph init` plus a Claude Code `marketplace add`.
+Memory works in any project automatically from that point on, with no
+scripts to copy and no `.claude/settings.json` edits.
 
-1. **MCP server** — exposes the 5 timegraph tools (`remember`, `add_fact`,
+```bash
+# 1. Install the engine + CLIs (timegraph, timegraph-mcp,
+#    timegraph-hook-{ingest,recall}, cortex-serve).
+pipx install git+https://github.com/jamoeight/cortex-mcp.git
+# (PyPI: `pipx install timegraph-mcp` once published)
+
+# 2. Bring up Neo4j + Qdrant, apply schema, init Qdrant collections,
+#    prefetch the fastembed model (~270 MB nomic-embed-text-v1.5).
+timegraph init
+```
+
+Then in Claude Code, once per machine:
+
+```
+/plugin marketplace add jamoeight/cortex-mcp
+/plugin install timegraph-cortex
+```
+
+Restart Claude Code. Memory is live. The plugin auto-wires three things
+so you never call a tool by hand:
+
+1. **MCP server** -- exposes the 5 timegraph tools (`remember`, `add_fact`,
    `recall`, `query`, `attest`) for when Claude wants explicit access.
-2. **`UserPromptSubmit` hook** — runs before each user turn. Embeds the
-   prompt, cosine-ranks against prior episodes, and injects the matching
-   facts as `additionalContext`. Claude sees relevant memory unprompted.
-3. **`Stop` hook** — runs after each assistant turn. Reads the transcript,
-   takes the last user→assistant pair, and stores it as an episode.
-   Tomorrow's session recalls today's.
+2. **`UserPromptSubmit` hook** -- embeds your prompt, cosine-ranks against
+   prior episodes, injects matching facts as `additionalContext`. Claude
+   sees relevant memory unprompted.
+3. **`Stop` hook** -- reads the transcript, takes the last user-assistant
+   pair, stores it as an episode. Tomorrow's session recalls today's.
+
+Each project gets its own `group_id` derived from `cwd`, so memories
+stay isolated across repos with no per-project config. Run
+`timegraph status` anytime to verify backends, fastembed cache, claude
+CLI, and plugin install.
 
 **Opus generation never goes through `claude -p`.** Claude Code keeps
-using its native OAuth path — the June 2026 `-p` pricing change doesn't
+using its native OAuth path -- the June 2026 `-p` pricing change doesn't
 apply to your normal Claude Code usage. The only `-p` calls are the
 bounded Haiku 4.5 judge inside timegraph ops (fact extraction during
 ingest, conflict resolution during `query`). Measured in cents per
 session.
 
+#### Manual setup (contributors developing the plugin itself)
+
+If you're working on this repo rather than installing the plugin, the
+dev wiring still works. The repo's `.claude/settings.json` already points
+at `scripts/hook_{ingest,recall}.py`, which are thin shims that delegate
+to the packaged modules. Bring up backends with the repo-root compose
+file and you're done:
+
 ```bash
-# 1. Verify claude CLI is logged in and Haiku works.
-claude --version
-claude -p --model haiku "say ok"              # should print "ok"
-
-# 2. Register the MCP server (project scope).
-claude mcp add timegraph \
-  --scope project \
-  -e TG_JUDGE_BACKEND=claude_cli \
-  -e TG_JUDGE_CLAUDE_MODEL=haiku \
-  -e TG_MCP_GROUP_ID=claude-code \
-  -- "$(pwd)/.venv/Scripts/timegraph-mcp.exe"
-
-# 3. The hook config is already in this repo at .claude/settings.json.
-#    Just open a new session — approve project hooks when prompted.
-claude
+docker compose up -d                              # Neo4j + Qdrant
+python -m venv .venv && .venv/Scripts/pip install -e .
+.venv/Scripts/python.exe -m timegraph.storage.schema --apply
+.venv/Scripts/python.exe -c "import asyncio; from timegraph.storage.qdrant_client import ensure_collections; asyncio.run(ensure_collections())"
+claude                                            # approve project hooks when prompted
 ```
 
-The hooks call two scripts in `scripts/` of this repo. The settings file
-that wires them:
-
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [{"hooks": [{
-      "type": "command",
-      "command": ".venv/Scripts/python.exe scripts/hook_recall.py",
-      "timeout": 15
-    }]}],
-    "Stop": [{"hooks": [{
-      "type": "command",
-      "command": ".venv/Scripts/python.exe scripts/hook_ingest.py",
-      "timeout": 30
-    }]}]
-  }
-}
-```
-
-#### Adding auto-memory to another project
-
-You don't need to clone, copy scripts, or install anything in the other
-project — point its `.claude/settings.json` at the absolute paths of
-this repo's scripts, passing a unique `--group-id` so memories stay
-isolated. One backend, isolated namespace per project:
-
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [{"hooks": [{
-      "type": "command",
-      "command": "C:/path/to/timegraph-mcp/.venv/Scripts/python.exe C:/path/to/timegraph-mcp/scripts/hook_recall.py --group-id myproject",
-      "timeout": 15
-    }]}],
-    "Stop": [{"hooks": [{
-      "type": "command",
-      "command": "C:/path/to/timegraph-mcp/.venv/Scripts/python.exe C:/path/to/timegraph-mcp/scripts/hook_ingest.py --group-id myproject",
-      "timeout": 30
-    }]}]
-  }
-}
-```
-
-Add `.mcp.json` in the other project the same way (with `TG_MCP_GROUP_ID=myproject`)
-to also expose the 5 tools. Memories are isolated per `group_id`;
-ingest under `myproject` only surfaces in recalls scoped to `myproject`.
+`.mcp.json` at the repo root registers the MCP server with the same
+`claude_cli` judge env the plugin uses, so behavior matches.
 
 #### Latency notes
 

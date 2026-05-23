@@ -1,0 +1,47 @@
+{
+  "name": "timegraph-cortex",
+  "version": "0.1.0",
+  "description": "Automatic memory for Claude Code. Every turn is ingested into a temporal graph; every prompt is augmented with relevant prior context. No manual recall calls.",
+  "author": {
+    "name": "Jameson",
+    "url": "https://github.com/jamoeight"
+  },
+  "homepage": "https://github.com/jamoeight/cortex-mcp",
+  "repository": "https://github.com/jamoeight/cortex-mcp",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "context", "recall", "mcp", "rag", "temporal-graph"],
+  "mcpServers": {
+    "timegraph": {
+      "command": "timegraph-mcp",
+      "env": {
+        "TG_JUDGE_BACKEND": "claude_cli",
+        "TG_JUDGE_CLAUDE_MODEL": "haiku",
+        "TG_USE_JUDGE_FOR_EXTRACTION": "true"
+      }
+    }
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "timegraph-hook-ingest",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "timegraph-hook-recall",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

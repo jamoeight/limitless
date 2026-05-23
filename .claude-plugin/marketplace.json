@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "timegraph-cortex",
+  "description": "Automatic memory for Claude Code via temporal graph + vector retrieval. Backend (Neo4j + Qdrant) is brought up by `timegraph init` after `pipx install timegraph-mcp`. See README for the architecture (bounded-1-LLM-call retriever + transparent ingest/recall hooks).",
+  "owner": {
+    "name": "Jameson",
+    "url": "https://github.com/jamoeight"
+  },
+  "plugins": [
+    {
+      "name": "timegraph-cortex",
+      "source": "./plugins/timegraph-cortex",
+      "description": "Automatic context recall: every Claude Code turn is ingested into a temporal graph, every prompt is augmented with relevant prior memory. Prerequisite: `pipx install timegraph-mcp && timegraph init`.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "keywords": ["memory", "context", "recall", "rag", "temporal-graph"],
+      "homepage": "https://github.com/jamoeight/cortex-mcp",
+      "author": {
+        "name": "Jameson",
+        "url": "https://github.com/jamoeight"
+      }
+    }
+  ]
+}
