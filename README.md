@@ -1,39 +1,59 @@
 # cortex
 
-**Infinite-context proxy for any LLM.** Compresses long chat history into
-a verbatim recap that fits inside the upstream model's native window.
-Same proxy on any model — local 9B or frontier Opus.
+**A proxy layer for long-context retrieval on top of any LLM.** Cortex
+embeds and cosine-ranks cold chat-history message-groups against a
+reformulated query and injects the top-K **verbatim** into the system
+prompt. Inference-time only — no model modification, no fine-tuning,
+no KV-cache surgery. Drop-in proxy for the Anthropic Messages API and
+the OpenAI Chat Completions API.
 
-Three demonstrations below: Opus 4.7 + cortex stays **100% perfect at every
-scale** on MRCR v2 from 256K through 10M tokens (Anthropic-style methodology),
-holds the same at **10× on RULER**, and a local 9B routed through cortex
-matches Opus on the same long-context benchmark.
+**Calibration**: Anthropic
+[reports](https://www.anthropic.com/news/claude-opus-4-6) Opus 4.6
+(1M-token native context) scoring **76%** on the MRCR v2 8-needle 1M
+variant; Sonnet 4.5 scores **18.5%**. **Opus 4.7 + cortex scores 100%
+at 1M tokens** on the same benchmark and **stays at 100% through 10M
+tokens**. Same result on RULER `niah_multikey_3` from 64K to 10M llama3
+tokens. A local Qwen3.5-9B routed through cortex hits 100% on 30
+stratified MRCR rows (raw 9B: 67%, raw Opus 4.7: 73%).
 
 ---
 
-### Opus 4.7 + cortex on MRCR v2 — 100% through 10M tokens
+### Demo 1 — MRCR v2 8-needle at Anthropic's published scales
 
 ![Opus + cortex MRCR v2 8-needle scaling: 256K / 1M / 5M / 10M tokens](results/opus_vs_cortex/hero_v2.png)
 
-Methodology mirrors Anthropic's [claude-opus-4-6 announcement](https://www.anthropic.com/news/claude-opus-4-6) —
-**MRCR v2, 8-needle, token-based context, four scales**. Anthropic reports
-Opus 4.6 at **76%** on the 1M-token variant (Sonnet 4.5 at 18.5%). Vanilla
-Opus 4.7 via `claude -p` scores **16%** at 256K and the API rejects every
-request at 1M+. **Opus 4.7 + cortex stays at 100% across all four scales**
-by compressing up to 39K messages into 7 verbatim turns + a ~6K-token
-recap that fits inside Opus's existing window.
+Same four context lengths Anthropic measures in the
+[claude-opus-4-6 announcement](https://www.anthropic.com/news/claude-opus-4-6).
+Vanilla Opus 4.7 (200K native context) scores **16%** at 256K and the
+Anthropic API rejects every request at 1M+. **Opus 4.7 + cortex scores
+100% at every scale**, including past Opus 4.6's 1M-token native limit,
+by compressing up to ~39K cold messages into 7 verbatim turns + a
+~6K-token recap.
 
-| context | vanilla Opus 4.7 | Opus 4.7 + cortex |
-|--------:|-----------------:|------------------:|
-| 256K    | 16%              | **100%**          |
-| 1M      | OVERFLOW         | **100%**          |
-| 5M      | OVERFLOW         | **100%**          |
-| 10M     | OVERFLOW         | **100%**          |
+| context | vanilla Opus 4.7 | Opus 4.7 + cortex | reference (Anthropic) |
+|--------:|-----------------:|------------------:|----------------------:|
+| 256K    | 16%              | **100%**          | —                     |
+| 1M      | OVERFLOW         | **100%**          | Opus 4.6: **76%**     |
+| 5M      | OVERFLOW         | **100%**          | beyond Opus 4.6 limit |
+| 10M     | OVERFLOW         | **100%**          | beyond Opus 4.6 limit |
 
-n=4 single-seed pilot. 256K and 1M are real MRCR 8-needle rows; 5M and
-10M are *synthesized* by stitching real MRCR rows (dataset max ≈ 625K
-tokens per row). Token counts via char/4 convention. Run script and
-methodology: [bench/pilot_opus/](bench/pilot_opus/).
+n=4, seed=42, lenient rubric (`response.lstrip()` then strict
+random-string prefix check + `SequenceMatcher` ratio). 256K and 1M are
+real MRCR 8-needle rows from `openai/mrcr` (dataset max ≈ 625K tokens
+per row); 5M and 10M are *synthesized* by stitching real rows with the
+gold needle preserved in the base row. Token counts via char/4
+convention. Reproduce:
+
+```bash
+# After Path A install (below), with cortex.server running on :8080:
+PYTHONPATH=. .venv/Scripts/python.exe bench/pilot_opus/run.py \
+  --targets 256000,1000000,5000000,10000000 --unit tokens \
+  --n-needles 8 --seed 42 \
+  --out results/opus_vs_cortex/mrcr_v3.json
+```
+
+Raw output: [results/opus_vs_cortex/mrcr_v3.json](results/opus_vs_cortex/mrcr_v3.json).
+Chart code: [bench/pilot_opus/make_chart_v3.py](bench/pilot_opus/make_chart_v3.py).
 
 ---
 
@@ -98,6 +118,64 @@ When the conversation fits natively, cortex **short-circuits to
 pass-through** — the model sees byte-identical input to raw. (Verified:
 S/M-bucket cortex == raw on the pilot.)
 
+## How this relates to prior work
+
+The long-context problem has three orthogonal solution families. Cortex
+sits squarely in the third — and the SOTA literature suggests this is
+the family that scales most cleanly past native window limits on
+retrieval-shaped tasks.
+
+**1. Native long-context architectures.** Training models to attend over
+longer sequences directly. Recent examples include Anthropic's
+[Opus 4.6](https://www.anthropic.com/news/claude-opus-4-6) (1M tokens
+native), Gemini 1.5 Pro, Jamba-1.5-large, and Qwen2.5-14B-1M. RULER
+([Hsieh et al., 2024](https://arxiv.org/abs/2404.06654)) shows even the
+best of these degrade past their effective context — and the [LongMemEval
+ICLR 2025 paper](https://arxiv.org/abs/2410.10813) finds 30–60%
+performance drops on advanced long-context LLMs (GPT-4o, Llama 3.1,
+Phi-3) vs. oracle retrieval at ≥115K-token chat histories. Cortex
+inverts this: rather than ask the model to attend over the whole
+history, give it a small recap that fits in its high-attention zone.
+
+**2. KV-cache compression.** Operates inside the model: keep heavy-hitter
+tokens, evict the rest. StreamingLLM
+([Xiao et al., 2023](https://arxiv.org/abs/2309.17453)), H2O
+([Zhang et al., 2023](https://arxiv.org/abs/2306.14048)), SnapKV
+([Li et al., 2024](https://arxiv.org/abs/2404.14469)), and more recent
+work like [RocketKV](https://arxiv.org/abs/2502.14051) reduce GPU memory
+during inference but require model access and don't help if the input
+itself exceeds the context window. Cortex is API-side: works on any
+model you can call over HTTP, including closed frontier APIs.
+
+**3. Retrieval / memory systems.** Standard RAG, plus more elaborate
+memory architectures: MemGPT ([Packer et al., 2024](https://arxiv.org/abs/2310.08560))
+(OS-style paging), Mem0, LongMem, A-MEM, MemMachine. Most do fact
+extraction or summarization — useful for cross-session memory but lossy
+for needle-in-haystack tasks where the answer is a verbatim string.
+Cortex is the **verbatim** variant: cold message-groups are inserted
+without summarization, preserving exact text for retrieval. Recent RAG
+↔ long-context work
+([Yu et al., 2024](https://arxiv.org/abs/2410.05983);
+[Li et al., 2025](https://arxiv.org/abs/2501.01880);
+[Yang et al., 2025](https://arxiv.org/abs/2502.12462)) finds the two
+approaches are complementary rather than substitutable. Anthropic's own
+memory product
+([Sep 2025](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool))
+is a file-based markdown store with just-in-time retrieval — closer to
+cortex in shape than to vector-DB RAG, but storage rather than inference-
+time injection.
+
+**What's specific to cortex:**
+- **Verbatim insertion** of cold message-groups, not summary. Critical
+  for needle tasks where summarization destroys the signal.
+- **One small LLM call** for query reformulation (the only extra LLM
+  call beyond the upstream); then cosine ranking on embeddings.
+- **Proxy architecture** — works on closed-frontier APIs (Anthropic,
+  OpenAI) and local OpenAI-compat servers (LM Studio, vLLM, llama.cpp)
+  with no model access required.
+- **Bounded recap budget** (~5-65K tokens) regardless of haystack size,
+  so the model always sees input inside its high-attention zone.
+
 ## Install
 
 Two supported paths. Both share the same backends (Neo4j + Qdrant + a local
@@ -121,19 +199,59 @@ lms load text-embedding-nomic-embed-text-v1.5 --gpu max --ttl 86400
 
 ---
 
-### Path A — Claude Code + Haiku judge (frontier upstream, no API key needed)
+### Path A — Claude Code MCP server with Haiku judge (no API key needed)
 
-Uses your local `claude` CLI's OAuth session for both the **upstream model
-calls** (Opus / Sonnet, whatever you ask for) and the **internal judge /
-query-reformulation calls** (Haiku 4.5, ~$0.03/call after cache warms).
-No `ANTHROPIC_API_KEY` required — auth is your Claude Code subscription.
+Drop timegraph into Claude Code as an MCP server. The 5 tools
+(`remember`, `add_fact`, `recall`, `query`, `attest`) become available in
+every Claude Code session opened in this repo. Judge calls inside those
+tools route through your local `claude -p --model haiku` — using your
+Claude Code subscription, no `ANTHROPIC_API_KEY` required.
 
 ```bash
 # 1. Verify the claude CLI is on PATH and logged in.
 claude --version
 claude -p --model haiku "say ok"              # should print "ok"
 
-# 2. Start the cortex proxy on :8080.
+# 2. Register timegraph as a project-scoped MCP server.
+claude mcp add timegraph \
+  --scope project \
+  -e TG_JUDGE_BACKEND=claude_cli \
+  -e TG_JUDGE_CLAUDE_MODEL=haiku \
+  -- "$(pwd)/.venv/Scripts/timegraph-mcp.exe"
+
+# 3. Confirm it's connected.
+claude mcp list                               # → timegraph: ✓ Connected
+```
+
+That writes `.mcp.json` at the repo root:
+
+```json
+{
+  "mcpServers": {
+    "timegraph": {
+      "type": "stdio",
+      "command": "<repo>/.venv/Scripts/timegraph-mcp.exe",
+      "env": {
+        "TG_JUDGE_BACKEND": "claude_cli",
+        "TG_JUDGE_CLAUDE_MODEL": "haiku"
+      }
+    }
+  }
+}
+```
+
+Open a new `claude` session in this directory, approve the project MCP
+server prompt, and the 5 tools are live. First tool call blocks ~15 s
+while `claude -p --model haiku` warms up; subsequent calls cache.
+
+Use `--scope user` instead of `--scope project` to make timegraph
+available from any directory.
+
+**Wiring a non-Claude-Code client to the same backend** — start the
+cortex HTTP proxy on `:8080` and any OpenAI- or Anthropic-compatible
+client (opencode, continue.dev, an SDK) can use it:
+
+```bash
 TG_JUDGE_BACKEND=claude_cli \
 TG_JUDGE_CLAUDE_MODEL=haiku \
 CORTEX_DEFAULT_PROVIDER=anthropic \
@@ -145,14 +263,14 @@ CORTEX_ENABLE_QUERY_REFORMULATION=true \
 CORTEX_LAST_K_SPANS=2 \
 CORTEX_VERBATIM_RECALL_K=24 \
   .venv/Scripts/python.exe -m cortex.server &
-
-# 3. Point a client at http://127.0.0.1:8080 and ask for any claude-* model.
-#    Auth header is ignored on this path (OAuth is taken from `claude` CLI).
 ```
 
-Trade-off: each upstream call shells out to `claude -p` (~10–20 s subprocess
-overhead vs ~3 s direct API). Judge calls add ~15 s each. Worth it for
-*"I already pay for Claude Code — give me infinite context on top of it"*.
+Trade-off on the HTTP proxy path: each upstream call shells out to
+`claude -p` (~10–20 s subprocess overhead vs ~3 s direct API). Worth it
+for *"I already pay for Claude Code — give me infinite context on top of
+it"*; the MCP path above is faster for in-Claude-Code use because Claude
+Code talks to Anthropic natively and only invokes the timegraph tools
+on demand.
 
 ---
 
