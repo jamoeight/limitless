@@ -27,6 +27,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Route structlog + stdlib logging to stderr BEFORE any timegraph.ops import,
+# so add_episode's log.info("extracted", ...) lines don't land on stdout and
+# poison the Stop hook's JSON channel.
+from timegraph.hooks._log import silence_to_stderr  # noqa: E402
+
+silence_to_stderr()
+
 # Default to the LM-Studio-free path for plugin installs. setdefault preserves
 # any user override (e.g. dev with LM Studio loaded). Must run before any
 # timegraph.ops import — those instantiate Settings which reads env once.

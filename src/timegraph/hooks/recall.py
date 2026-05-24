@@ -30,6 +30,12 @@ import json
 import os
 import sys
 
+# Route structlog + stdlib logging to stderr BEFORE any timegraph.ops import,
+# so library log lines don't land on stdout and break the JSON channel.
+from timegraph.hooks._log import silence_to_stderr  # noqa: E402
+
+silence_to_stderr()
+
 # Default to the LM-Studio-free path for plugin installs. setdefault preserves
 # any user override (e.g. dev with LM Studio loaded). Must run before any
 # timegraph.ops import — those instantiate Settings which reads env once.
