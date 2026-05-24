@@ -264,8 +264,14 @@ async def cmd_init(args: argparse.Namespace) -> int:
     print("  1) In Claude Code, install the plugin:")
     print("       /plugin marketplace add jamoeight/cortex-mcp")
     print("       /plugin install timegraph-cortex")
-    print("  2) Restart Claude Code so hooks load.")
-    print("  3) Open any project -- recall + ingest run on every turn automatically.")
+    print("  2) Point Claude Code at the local cortex proxy. Set this in the")
+    print("     shell that launches `claude` (must be set BEFORE claude starts):")
+    print("       bash / zsh    :  export ANTHROPIC_BASE_URL=http://127.0.0.1:8080")
+    print("       PowerShell    :  $env:ANTHROPIC_BASE_URL = \"http://127.0.0.1:8080\"")
+    print("       cmd.exe       :  set ANTHROPIC_BASE_URL=http://127.0.0.1:8080")
+    print("     Without this, hooks still run but virtualization is off.")
+    print("  3) Restart Claude Code so hooks load.")
+    print("  4) Open any project -- recall + ingest run on every turn automatically.")
     print(f"\nBackend state lives in {home}/data. Container names: timegraph_neo4j, timegraph_qdrant.")
     return 0
 

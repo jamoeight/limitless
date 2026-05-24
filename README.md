@@ -213,16 +213,41 @@ Then in Claude Code, once per machine:
 /plugin install timegraph-cortex
 ```
 
-Claude Code plugins cannot inject environment variables into the already-running
-Claude Code host process. Set this one variable in the shell that starts Claude
-Code so Anthropic-format traffic goes through the local cortex proxy that the
-plugin's `SessionStart` hook launches:
+Then point Claude Code at the local cortex proxy. The plugin's `SessionStart`
+hook starts the proxy on `127.0.0.1:8080`, but Claude Code plugins cannot
+inject environment variables into the already-running host process — so this
+variable has to be set in the shell **before** `claude` launches. Without it,
+Claude Code goes direct to `api.anthropic.com`, the plugin's hooks still work
+(recall + ingest), but no virtualization happens.
+
+**macOS / Linux (bash, zsh):**
 
 ```bash
 export ANTHROPIC_BASE_URL=http://127.0.0.1:8080
+# Persist across shells — append to whichever rc file you use:
+echo 'export ANTHROPIC_BASE_URL=http://127.0.0.1:8080' >> ~/.zshrc   # or ~/.bashrc
 ```
 
-Restart Claude Code.
+**Windows (PowerShell — recommended):**
+
+```powershell
+$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8080"
+# Persist across PowerShell sessions (user scope, no admin needed):
+[Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "http://127.0.0.1:8080", "User")
+```
+
+**Windows (cmd.exe):**
+
+```cmd
+set ANTHROPIC_BASE_URL=http://127.0.0.1:8080
+:: Persist across sessions:
+setx ANTHROPIC_BASE_URL http://127.0.0.1:8080
+```
+
+Then restart Claude Code in the same shell you set the variable in (or any new
+shell if you used the persist line). Verify with `echo $ANTHROPIC_BASE_URL`
+(macOS/Linux) or `echo $env:ANTHROPIC_BASE_URL` (PowerShell) before launching
+`claude`.
 
 **Upgrading from a prior install:** re-run both — pipx to land any new
 entry-point wrappers on PATH (e.g. when 0.1.0 → 0.2.0 added
