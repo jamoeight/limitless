@@ -213,7 +213,22 @@ Then in Claude Code, once per machine:
 /plugin install timegraph-cortex
 ```
 
-Restart Claude Code. Memory is live. The plugin gives Claude Code an
+Restart Claude Code.
+
+**Upgrading from a prior install:** re-run both — pipx to land any new
+entry-point wrappers on PATH (e.g. when 0.1.0 → 0.2.0 added
+`timegraph-hook-{tool-use,session-start}`), and Claude Code's plugin
+update to pick up the new manifest:
+
+```bash
+pipx install --force git+https://github.com/jamoeight/cortex-mcp.git
+```
+
+```
+/plugin update timegraph-cortex
+```
+
+Restart Claude Code so `SessionStart` fires with the new manifest. Memory is live. The plugin gives Claude Code an
 **effectively infinite context window** by wiring four hooks + an MCP
 server + three slash commands, so the user never recalls by hand:
 
