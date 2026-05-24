@@ -75,7 +75,10 @@ class AnthropicProvider:
             log.warning("anthropic stream transport error", error=str(e))
             yield ChunkError(error_type="upstream_transport_error", message=str(e))
         except Exception as e:  # noqa: BLE001
-            log.exception("anthropic stream unexpected error")
+            try:
+                log.exception("anthropic stream unexpected error")
+            except Exception:  # noqa: BLE001
+                pass
             yield ChunkError(error_type="upstream_unexpected_error", message=str(e))
 
     async def aclose(self) -> None:

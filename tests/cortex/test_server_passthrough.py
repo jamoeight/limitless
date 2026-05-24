@@ -335,3 +335,79 @@ async def test_cortex_session_headers_propagate_to_request() -> None:
     assert fake.last_request.cortex_time_anchor_iso == "2026-05-01T00:00:00Z"
     assert fake.last_request.cortex_disable_virtualize is True
     assert fake.last_request.cortex_disable_ingest is False
+
+
+# ---------- Logging-resilience regression ----------
+
+
+class _RaisingProvider:
+    """Provider whose stream raises mid-flight with a unicode-laden message."""
+
+    name = "anthropic"
+
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    async def stream(self, req, api_key, extra_headers=None):
+        # Yield the message_start so the generator is well into the loop
+        # before the exception fires — mirrors the real cp1252 crash.
+        yield ChunkMessageStart(message_id="msg_x", model=req.model, input_tokens=1)
+        raise self._exc
+
+    async def aclose(self) -> None:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_stream_survives_logger_unicode_encode_error(monkeypatch) -> None:
+    """If log.exception itself raises (e.g. cp1252 stdout on Windows trying to
+    encode an emoji in the traceback), the SSE generator must still emit an
+    error event instead of dying silently and poisoning the proxy for the rest
+    of its lifetime.
+    """
+    import cortex.server as srv
+
+    class _ExplodingLogger:
+        def exception(self, *_a, **_kw):
+            raise UnicodeEncodeError("charmap", "\U0001F389", 0, 1, "boom")
+        def info(self, *_a, **_kw): pass
+        def warning(self, *_a, **_kw): pass
+        def error(self, *_a, **_kw): pass
+        def debug(self, *_a, **_kw): pass
+
+    monkeypatch.setattr(srv, "log", _ExplodingLogger())
+
+    provider = _RaisingProvider(ValueError("upstream chunk had \U0001F389 in it"))
+    app = _app_with(provider)
+
+    async with _live_client(app) as client:
+        async with client.stream(
+            "POST",
+            "/v1/messages",
+            headers={"x-api-key": "sk-ant-test"},
+            json={
+                "model": "claude-opus-4-7",
+                "max_tokens": 16,
+                "messages": [{"role": "user", "content": "go"}],
+                "stream": True,
+            },
+        ) as resp:
+            assert resp.status_code == 200
+            raw = ""
+            async for chunk in resp.aiter_text():
+                raw += chunk
+
+    events = _parse_sse(raw)
+    names = [n for n, _ in events]
+    assert "error" in names, f"stream silently died; got events: {names}"
+    err_payload = next(d for n, d in events if n == "error")
+    assert err_payload["error"]["type"] == "proxy_error"
+
+
+def test_configure_stdio_encoding_is_idempotent_and_safe() -> None:
+    """The startup encoding fix must not crash if streams are already UTF-8
+    or are non-reconfigurable (e.g. wrapped by a test runner)."""
+    from cortex.server import _configure_stdio_encoding
+
+    _configure_stdio_encoding()
+    _configure_stdio_encoding()

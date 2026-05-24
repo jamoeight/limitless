@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -57,6 +58,23 @@ from cortex.translate.openai import (
 from cortex.virtualize import RecallFn, VerbatimRecallFn, VirtualizationReport, virtualize
 
 log = structlog.get_logger(__name__)
+
+
+def _configure_stdio_encoding() -> None:
+    """Force stdout/stderr to UTF-8 with replacement on encode errors.
+
+    Why: on Windows the default console encoding is cp1252. structlog's
+    PrintLogger writes via `print(message, file=sys.stdout)`, so any log
+    line containing characters outside cp1252 (emoji, non-Latin scripts,
+    astral-plane chars) raises UnicodeEncodeError. When that fires inside
+    an async SSE generator's error handler the generator dies silently
+    and the proxy stops virtualizing for the rest of the process.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):
+            pass
 
 
 # ---------- Provider registry ----------
@@ -350,7 +368,10 @@ def _stream_response(
                 if isinstance(chunk, ChunkError):
                     return
         except Exception as e:  # noqa: BLE001
-            log.exception("stream pipeline crashed")
+            try:
+                log.exception("stream pipeline crashed")
+            except Exception:  # noqa: BLE001
+                pass
             if ingress == "anthropic":
                 yield {
                     "event": "error",
@@ -544,6 +565,7 @@ def main() -> None:
     """Console entry point. `python -m cortex.server` runs this."""
     import uvicorn
 
+    _configure_stdio_encoding()
     s = get_cortex_settings()
     uvicorn.run(
         "cortex.server:app",
