@@ -1,0 +1,57 @@
+{
+  "turns_requested": 200,
+  "logical_turns_observed": 200,
+  "threshold_tokens": 50000,
+  "max_outbound_tokens": 15331,
+  "max_original_tokens": 198578,
+  "median_outbound_tokens": 13228,
+  "turns_over_threshold": 0,
+  "turns_over_threshold_examples": [],
+  "all_turns_under_threshold": true,
+  "secret_codename": "ZQQZOGOB-49800",
+  "secret_planted_turn": 5,
+  "recall_answer": "ZQQZOGOB-49800",
+  "recall_pass": true,
+  "recall_info": {
+    "answer": "ZQQZOGOB-49800",
+    "raw_envelope_usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 8552,
+      "cache_read_input_tokens": 0,
+      "output_tokens": 12,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 8552,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "",
+      "iterations": [
+        {
+          "input_tokens": 3,
+          "output_tokens": 12,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 8552,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 8552
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard"
+    },
+    "request_system_chars_full": 40623,
+    "request_system_chars_recap_only": 39448,
+    "used_recap_only": true,
+    "duration_ms": 1764,
+    "model": "claude-sonnet-4-6"
+  },
+  "overall_pass": true,
+  "session_id": "c1f228c8-8e19-432c-9f5e-163924c123f5",
+  "model": "claude-haiku-4-5",
+  "filler_chars": 4000
+}
