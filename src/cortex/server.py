@@ -16,7 +16,10 @@ so MVP-3 virtualization and MVP-4 OpenAI routing slot in with zero churn.
 from __future__ import annotations
 
 import json
+import os
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -299,6 +302,7 @@ async def _handle_messages(request: Request, *, ingress: str) -> Any:
             context_limit=settings.upstream_context_limit,
             tools_serialized=tools_serialized,
         )
+    _record_request_snapshot(upstream_req, virt_report)
 
     client_wants_stream = cortex_req.stream
     if client_wants_stream:
@@ -411,13 +415,65 @@ async def _aggregate_response(
 def _response_headers(virt_report: VirtualizationReport | None) -> dict[str, str]:
     headers = {"X-Cortex-Proxy": "anthropic"}
     if virt_report is not None:
-        headers["X-Cortex-Virtualized"] = "true" if virt_report.cold_group_count > 0 else "false"
+        was_trimmed = (
+            virt_report.cold_group_count > 0
+            and not virt_report.degraded
+            and virt_report.kept_message_count < virt_report.original_message_count
+        )
+        headers["X-Cortex-Virtualized"] = "true" if was_trimmed else "false"
         headers["X-Cortex-Original-Messages"] = str(virt_report.original_message_count)
         headers["X-Cortex-Kept-Messages"] = str(virt_report.kept_message_count)
         headers["X-Cortex-Recap-Tokens"] = str(virt_report.recap_token_estimate)
+        headers["X-Cortex-Original-Tokens"] = str(virt_report.original_total_token_estimate)
+        headers["X-Cortex-Kept-Tokens"] = str(virt_report.kept_token_estimate)
+        headers["X-Cortex-System-Tokens"] = str(virt_report.post_system_token_estimate)
+        headers["X-Cortex-Tools-Tokens"] = str(virt_report.tools_token_estimate)
+        headers["X-Cortex-Outbound-Tokens"] = str(virt_report.outbound_token_estimate)
+        headers["X-Cortex-Cold-Groups"] = str(virt_report.cold_group_count)
+        headers["X-Cortex-Cold-Tokens"] = str(virt_report.cold_token_estimate)
         if virt_report.degraded:
             headers["X-Cortex-Degraded"] = "virtualize-skipped"
+    _record_response_headers(headers)
     return headers
+
+
+def _record_response_headers(headers: dict[str, str]) -> None:
+    path = os.environ.get("CORTEX_HEADER_LOG")
+    if not path:
+        return
+    try:
+        p = Path(path).expanduser()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "t": time.time(),
+            "headers": {k.lower(): v for k, v in headers.items()},
+        }
+        with p.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:  # noqa: BLE001
+        log.warning("response header log failed", error=str(e))
+
+
+def _record_request_snapshot(
+    req: CortexRequest, virt_report: VirtualizationReport | None
+) -> None:
+    path = os.environ.get("CORTEX_SNAPSHOT_LOG")
+    if not path:
+        return
+    try:
+        p = Path(path).expanduser()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        blob = {
+            "t": time.time(),
+            "report": virt_report.as_dict() if virt_report else None,
+            "model": req.model,
+            "system": req.system,
+            "messages": [m.model_dump() for m in req.messages],
+            "max_tokens": req.max_tokens,
+        }
+        p.write_text(json.dumps(blob, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        log.warning("request snapshot log failed", error=str(e))
 
 
 # ---------- Helpers ----------

@@ -246,6 +246,36 @@ def test_format_facts_returns_none_when_no_valid_rows():
     assert session_start_hook._format_facts(facts, "h") is None
 
 
+def test_session_start_cortex_env_sets_full_proxy_defaults(tmp_path, monkeypatch):
+    monkeypatch.setenv("TIMEGRAPH_HOME", str(tmp_path))
+    for key in (
+        "CORTEX_USE_CLAUDE_CLI_PROVIDER",
+        "CORTEX_ENABLE_AUTO_INGEST",
+        "CORTEX_ENABLE_VIRTUALIZATION",
+        "CORTEX_ENABLE_VERBATIM_RECALL",
+        "CORTEX_UPSTREAM_CONTEXT_LIMIT",
+        "CORTEX_HEADER_LOG",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    env = session_start_hook._cortex_env()
+
+    assert env["CORTEX_USE_CLAUDE_CLI_PROVIDER"] == "true"
+    assert env["CORTEX_ENABLE_AUTO_INGEST"] == "true"
+    assert env["CORTEX_ENABLE_VIRTUALIZATION"] == "true"
+    assert env["CORTEX_ENABLE_VERBATIM_RECALL"] == "true"
+    assert env["CORTEX_UPSTREAM_CONTEXT_LIMIT"] == "50000"
+    assert env["CORTEX_HEADER_LOG"] == str(tmp_path / "cortex_headers.jsonl")
+
+
+def test_session_start_cortex_env_respects_operator_override(monkeypatch):
+    monkeypatch.setenv("CORTEX_UPSTREAM_CONTEXT_LIMIT", "75000")
+
+    env = session_start_hook._cortex_env()
+
+    assert env["CORTEX_UPSTREAM_CONTEXT_LIMIT"] == "75000"
+
+
 # -------- recall.py (UserPromptSubmit episode/fact formatting) -------
 
 

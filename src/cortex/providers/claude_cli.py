@@ -12,7 +12,12 @@ Registers under name="anthropic" so cortex's model-name router
 
 Two transport paths:
 
-  - **stream-json (default for text-only requests).** Sends each user message
+  - **Flatten (default).** Sends the post-virtualization messages as one
+    prompt and the cortex recap via `--system-prompt-file`. This is the
+    reliable path for cortex because the Claude CLI consistently applies
+    system prompt files in flat `-p` mode.
+
+  - **stream-json (opt-in via CORTEX_CLAUDE_CLI_STREAM_JSON=true for text-only requests).** Sends each user message
     as a separate `{"type":"user","message":{...}}` line over stdin using
     `--input-format=stream-json --output-format=stream-json`. The CLI processes
     each as its own conversation turn, generating its own assistant responses
@@ -76,17 +81,20 @@ class ClaudeCliProvider:
         api_key: str,
         extra_headers: dict[str, str] | None = None,
     ) -> AsyncIterator[CortexChunk]:
-        if self._has_tool_blocks(req):
-            async for chunk in self._stream_via_flatten(req):
+        use_stream_json = os.environ.get("CORTEX_CLAUDE_CLI_STREAM_JSON", "").lower() in {
+            "1", "true", "yes", "on",
+        }
+        if use_stream_json and not self._has_tool_blocks(req):
+            async for chunk in self._stream_via_stream_json(req):
                 yield chunk
         else:
-            async for chunk in self._stream_via_stream_json(req):
+            async for chunk in self._stream_via_flatten(req):
                 yield chunk
 
     # ---------- Transport: stream-json (preferred) ----------
 
     async def _stream_via_stream_json(self, req: CortexRequest) -> AsyncIterator[CortexChunk]:
-        system = req.system or "You are a helpful assistant."
+        system = self._system_for_cli(req.system)
         model = self._model_alias(req.model)
 
         # Collect user messages from req. Assistant messages are dropped here:
@@ -133,6 +141,7 @@ class ClaudeCliProvider:
                 "--tools", "",
                 "--disable-slash-commands",
                 "--no-session-persistence",
+                "--setting-sources", "",
                 "--strict-mcp-config",
                 "--mcp-config", "{\"mcpServers\":{}}",
                 "--input-format", "stream-json",
@@ -147,7 +156,7 @@ class ClaudeCliProvider:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=td,
-                    env={**os.environ, "CLAUDE_CODE_DISABLE_AUTO_UPDATER": "1"},
+                    env=self._subprocess_env(),
                 )
             except FileNotFoundError as e:
                 yield ChunkError(error_type="claude_cli_not_found", message=str(e))
@@ -195,7 +204,7 @@ class ClaudeCliProvider:
 
     async def _stream_via_flatten(self, req: CortexRequest) -> AsyncIterator[CortexChunk]:
         prompt = self._build_prompt(req)
-        system = req.system or "You are a helpful assistant."
+        system = self._system_for_cli(req.system)
         model = self._model_alias(req.model)
 
         # Windows argv has a ~32K char limit; cortex-injected recaps can blow
@@ -217,6 +226,7 @@ class ClaudeCliProvider:
                 "",
                 "--disable-slash-commands",
                 "--no-session-persistence",
+                "--setting-sources", "",
                 "--output-format",
                 "json",
                 "--max-budget-usd",
@@ -230,7 +240,7 @@ class ClaudeCliProvider:
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=td,
-                    env={**os.environ, "CLAUDE_CODE_DISABLE_AUTO_UPDATER": "1"},
+                    env=self._subprocess_env(),
                 )
             except FileNotFoundError as e:
                 yield ChunkError(error_type="claude_cli_not_found", message=str(e))
@@ -299,6 +309,31 @@ class ClaudeCliProvider:
         yield ChunkMessageStop()
 
     # ---------- Helpers ----------
+
+    @staticmethod
+    def _subprocess_env() -> dict[str, str]:
+        env = os.environ.copy()
+        env["CLAUDE_CODE_DISABLE_AUTO_UPDATER"] = "1"
+        for key in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+            env.pop(key, None)
+        return env
+
+    @staticmethod
+    def _system_for_cli(system: str | None) -> str:
+        if not system:
+            return "You are a helpful assistant."
+        start = system.find("<cortex_memory>")
+        end = system.find("</cortex_memory>")
+        if start < 0 or end < 0:
+            return system
+        recap = system[start : end + len("</cortex_memory>")]
+        return (
+            "You are a helpful assistant. The cortex_memory block below is a "
+            "trusted reconstruction of earlier conversation context omitted "
+            "from the visible messages. Use it as authoritative context when "
+            "answering questions about earlier turns.\n\n"
+            + recap
+        )
 
     @staticmethod
     def _has_tool_blocks(req: CortexRequest) -> bool:

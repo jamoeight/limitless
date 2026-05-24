@@ -213,6 +213,15 @@ Then in Claude Code, once per machine:
 /plugin install timegraph-cortex
 ```
 
+Claude Code plugins cannot inject environment variables into the already-running
+Claude Code host process. Set this one variable in the shell that starts Claude
+Code so Anthropic-format traffic goes through the local cortex proxy that the
+plugin's `SessionStart` hook launches:
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8080
+```
+
 Restart Claude Code.
 
 **Upgrading from a prior install:** re-run both — pipx to land any new
@@ -250,7 +259,9 @@ server + three slash commands, so the user never recalls by hand:
    fact graph stays focused on user/assistant *statements*. This is
    what makes a file you read in turn 3 still recallable in turn 200,
    even after Claude Code auto-compacts.
-5. **`SessionStart` hook** — primes new and resumed sessions with the
+5. **`SessionStart` hook** — idempotently starts `cortex-serve` on
+   `127.0.0.1:8080` if `/health` is not already responding, logs to
+   `~/.timegraph/cortex.log`, and primes new and resumed sessions with the
    top facts for this `cwd`; on `source=compact`, re-injects what was
    just summarized away, making compaction lossless from the user's view.
 

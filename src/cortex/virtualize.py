@@ -257,9 +257,13 @@ class VirtualizationReport:
     def __init__(self) -> None:
         self.original_message_count: int = 0
         self.original_token_estimate: int = 0
+        self.original_total_token_estimate: int = 0
         self.kept_message_count: int = 0
         self.kept_token_estimate: int = 0
         self.recap_token_estimate: int = 0
+        self.post_system_token_estimate: int = 0
+        self.tools_token_estimate: int = 0
+        self.outbound_token_estimate: int = 0
         self.cold_group_count: int = 0
         self.cold_token_estimate: int = 0
         self.degraded: bool = False
@@ -269,9 +273,13 @@ class VirtualizationReport:
         return {
             "original_messages": self.original_message_count,
             "original_tokens": self.original_token_estimate,
+            "original_total_tokens": self.original_total_token_estimate,
             "kept_messages": self.kept_message_count,
             "kept_tokens": self.kept_token_estimate,
             "recap_tokens": self.recap_token_estimate,
+            "post_system_tokens": self.post_system_token_estimate,
+            "tools_tokens": self.tools_token_estimate,
+            "outbound_tokens": self.outbound_token_estimate,
             "cold_groups": self.cold_group_count,
             "cold_tokens": self.cold_token_estimate,
             "degraded": self.degraded,
@@ -312,6 +320,10 @@ async def virtualize(
     limit = context_limit if context_limit is not None else context_limit_for(req.model)
     system_t = approx_tokens(req.system or "")
     tools_t = tools_tokens(tools_serialized or [])
+    report.tools_token_estimate = tools_t
+    report.post_system_token_estimate = system_t
+    report.original_total_token_estimate = report.original_token_estimate + system_t + tools_t
+    report.outbound_token_estimate = report.original_total_token_estimate
     M = limit - req.max_tokens - system_t - tools_t - settings.safety_margin_tokens
 
     groups = compute_atomic_groups(req.messages)
@@ -337,6 +349,8 @@ async def virtualize(
         report.kept_message_count = len(req.messages)
         report.kept_token_estimate = original_t
         if not recall_text:
+            report.post_system_token_estimate = system_t
+            report.outbound_token_estimate = original_t + system_t + tools_t
             report.notes.append(
                 f"fits naturally (orig_tokens={original_t} <= budget={M}); pass-through"
             )
@@ -344,6 +358,8 @@ async def virtualize(
         recap = assemble_recap("", recall_text)
         report.recap_token_estimate = approx_tokens(recap)
         new_system = (req.system or "") + recap if recap else req.system
+        report.post_system_token_estimate = approx_tokens(new_system or "")
+        report.outbound_token_estimate = original_t + report.post_system_token_estimate + tools_t
         new_req = req.model_copy(update={"system": new_system})
         report.notes.append(
             f"fits naturally; recap-only ({report.recap_token_estimate}tok recall) added, "
@@ -368,6 +384,8 @@ async def virtualize(
     # Sanity: if verbatim is already too big, we can't help.
     if verbatim_t > M:
         report.degraded = True
+        report.post_system_token_estimate = system_t
+        report.outbound_token_estimate = report.original_total_token_estimate
         report.notes.append(
             f"verbatim_tokens={verbatim_t} exceeds budget M={M}; passing through unchanged"
         )
@@ -434,6 +452,8 @@ async def virtualize(
     # If everything produced nothing, the recap will be empty — return
     # the original request unchanged.
     if not retrieved_history and not cold_summary and not recall_text:
+        report.post_system_token_estimate = system_t
+        report.outbound_token_estimate = report.original_total_token_estimate
         report.notes.append("no recall hits and no cold history; pass-through")
         return req, report
 
@@ -441,6 +461,8 @@ async def virtualize(
     report.recap_token_estimate = approx_tokens(recap)
 
     new_system = (req.system or "") + recap if recap else req.system
+    report.post_system_token_estimate = approx_tokens(new_system or "")
+    report.outbound_token_estimate = verbatim_t + report.post_system_token_estimate + tools_t
     new_req = req.model_copy(update={"system": new_system, "messages": verbatim_msgs})
     report.notes.append(
         f"virtualized: kept={report.kept_message_count}/{report.original_message_count} groups; "

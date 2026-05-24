@@ -10,6 +10,7 @@ RECORDS the upstream request it receives, and assert:
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -146,7 +147,9 @@ def _long_conversation(n_groups: int) -> list[dict]:
 
 
 @pytest.mark.asyncio
-async def test_virtualization_reduces_message_count_when_enabled() -> None:
+async def test_virtualization_reduces_message_count_when_enabled(tmp_path, monkeypatch) -> None:
+    header_log = tmp_path / "headers.jsonl"
+    monkeypatch.setenv("CORTEX_HEADER_LOG", str(header_log))
     app, provider = _setup_app(enable_virtualization=True, last_k_spans=2)
     async with _live(app) as client:
         resp = await client.post(
@@ -170,6 +173,10 @@ async def test_virtualization_reduces_message_count_when_enabled() -> None:
     assert resp.headers.get("x-cortex-original-messages") == "16"
     assert resp.headers.get("x-cortex-kept-messages") == "4"
     assert int(resp.headers.get("x-cortex-recap-tokens", "0")) > 0
+    assert int(resp.headers.get("x-cortex-outbound-tokens", "0")) > 0
+    logged = [json.loads(line) for line in header_log.read_text(encoding="utf-8").splitlines()]
+    assert logged[-1]["headers"]["x-cortex-virtualized"] == "true"
+    assert int(logged[-1]["headers"]["x-cortex-outbound-tokens"]) > 0
 
 
 @pytest.mark.asyncio

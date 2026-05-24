@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import re
 
 import httpx
 import structlog
@@ -269,8 +270,63 @@ def _format_group_verbatim(group: list[CortexMessage], turn_idx: int) -> str:
     return "\n".join(lines)
 
 
+_LITERAL_NEEDLE_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9_-]{7,}\b")
+
+
+def _literal_needles(query: str) -> list[str]:
+    needles: list[str] = []
+    for token in _LITERAL_NEEDLE_RE.findall(query):
+        if "_" not in token and "-" not in token and not any(ch.isdigit() for ch in token):
+            continue
+        needles.append(token.lower())
+    return needles
+
+
+def _literal_group_indices(query: str, cold_groups: list[list[CortexMessage]]) -> list[int]:
+    needles = _literal_needles(query)
+    if not needles:
+        return []
+    out: list[int] = []
+    for idx, group in enumerate(cold_groups):
+        text = "\n".join(message_to_text(m) for m in group).lower()
+        if any(needle in text for needle in needles):
+            out.append(idx)
+    return out
+
+
 def _approx_tokens(text: str) -> int:
     return max(1, len(text) // 4)
+
+
+def _render_verbatim_indices(
+    cold_groups: list[list[CortexMessage]], indices: list[int], token_budget: int
+) -> str:
+    chosen_idxs: list[int] = []
+    used_tokens = 0
+    for idx in indices:
+        block = _format_group_verbatim(cold_groups[idx], turn_idx=idx)
+        block_t = _approx_tokens(block) + 2
+        if used_tokens + block_t > token_budget and chosen_idxs:
+            break
+        chosen_idxs.append(idx)
+        used_tokens += block_t
+
+    if not chosen_idxs:
+        return ""
+
+    chosen_idxs.sort()
+    rendered: list[str] = []
+    rendered.append(
+        "Verbatim retrieved from earlier in this conversation, sorted by their "
+        "ORIGINAL turn order. Use these to answer the user's current query - "
+        "they contain the exact text you need."
+    )
+    rendered.append("")
+    for idx in chosen_idxs:
+        rendered.append(_format_group_verbatim(cold_groups[idx], turn_idx=idx))
+        rendered.append("")
+
+    return "\n".join(rendered).rstrip()
 
 
 async def recall_verbatim_inline(
@@ -287,7 +343,7 @@ async def recall_verbatim_inline(
     No Qdrant. No Neo4j. Pure inline embedding + cosine ranking. Works on a
     first turn where the cortex ingest pipeline hasn't yet persisted anything.
 
-    Failure modes (all fail open → empty string):
+    Failure modes (all fail open -> empty string):
       - empty query / no cold groups
       - embedder server unreachable
       - embedder dim mismatch
@@ -300,6 +356,7 @@ async def recall_verbatim_inline(
         retrieval_query = await reformulate_query_for_recall(query)
     else:
         retrieval_query = query
+    literal_idxs = _literal_group_indices(query, cold_groups)
 
     # Embed query + every group's text in a single batched embedder pass.
     try:
@@ -308,16 +365,18 @@ async def recall_verbatim_inline(
         embedder = EmbedderClient()
         try:
             group_texts = [_group_text_for_embed(g) for g in cold_groups]
-            # Embed everything in one client lifecycle — embed_many batches under the hood.
+            # Embed everything in one client lifecycle; embed_many batches under the hood.
             all_vecs = await embedder.embed_many([retrieval_query, *group_texts])
         finally:
             await embedder.close()
     except Exception as e:  # noqa: BLE001
         log.warning("recall.verbatim_embed_failed", error=str(e))
+        if literal_idxs:
+            return _render_verbatim_indices(cold_groups, literal_idxs, token_budget)
         return ""
 
     if len(all_vecs) < 2:
-        return ""
+        return _render_verbatim_indices(cold_groups, literal_idxs, token_budget)
 
     qvec = all_vecs[0]
     group_vecs = all_vecs[1:]
@@ -328,36 +387,18 @@ async def recall_verbatim_inline(
         scored.append((_cosine(qvec, v), i))
     scored.sort(key=lambda t: t[0], reverse=True)
 
-    # Keep top-K but pad to token_budget: take more if budget allows; drop if
-    # over budget. Preserve ORIGINAL message order (event-time order) in the
-    # output so "the Nth thing" stays interpretable.
-    candidates = scored[: max(k, k)]  # noqa: PLR1730
-    chosen_idxs: list[int] = []
-    used_tokens = 0
-    for _score, idx in candidates:
-        block = _format_group_verbatim(cold_groups[idx], turn_idx=idx)
-        block_t = _approx_tokens(block) + 2  # +2 for blank-line join cost
-        if used_tokens + block_t > token_budget and chosen_idxs:
-            break
-        chosen_idxs.append(idx)
-        used_tokens += block_t
+    ranked_idxs: list[int] = []
+    seen: set[int] = set()
+    for idx in literal_idxs:
+        ranked_idxs.append(idx)
+        seen.add(idx)
+    for _score, idx in scored[: max(k, k + len(literal_idxs))]:
+        if idx in seen:
+            continue
+        ranked_idxs.append(idx)
+        seen.add(idx)
 
-    if not chosen_idxs:
-        return ""
-
-    chosen_idxs.sort()  # restore chronological order
-    rendered: list[str] = []
-    rendered.append(
-        "Verbatim retrieved from earlier in this conversation, sorted by their "
-        "ORIGINAL turn order. Use these to answer the user's current query — "
-        "they contain the exact text you need."
-    )
-    rendered.append("")
-    for idx in chosen_idxs:
-        rendered.append(_format_group_verbatim(cold_groups[idx], turn_idx=idx))
-        rendered.append("")
-
-    return "\n".join(rendered).rstrip()
+    return _render_verbatim_indices(cold_groups, ranked_idxs, token_budget)
 
 
 # Held for tests: a noop stub the same shape as the real fn.
