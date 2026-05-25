@@ -90,6 +90,19 @@ async def add_episode(payload: AddEpisodeIn) -> AddEpisodeOut:
     extractor: ExtractorClient | None = None
     if payload.asserted_facts is not None:
         extracted: list[Fact] = list(payload.asserted_facts)
+    elif len(payload.content) > s.extractor_skip_threshold_chars:
+        # Large tool-result spans (web_search dumps, full file reads, bash
+        # output) blow past any reasonable extractor budget. Record the
+        # episode + embed it (so vector recall still surfaces it) but skip
+        # the LLM extraction call. Avoids the retry storm documented in
+        # ~/.timegraph/cortex.log when 500KB blobs land in auto-ingest.
+        log.info(
+            "ingest.skip.large_payload",
+            chars=len(payload.content),
+            threshold=s.extractor_skip_threshold_chars,
+            source=payload.source,
+        )
+        extracted = []
     else:
         extractor = ExtractorClient()
         try:

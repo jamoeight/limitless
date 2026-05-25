@@ -80,6 +80,21 @@ class Settings(BaseSettings):
     extractor_max_tokens: int = Field(1024)
     extractor_timeout_s: float = Field(30.0)
 
+    # Hard wall-clock cap on a single extract_facts() invocation (the inner
+    # backend HTTP timeout enforces this too, but wrapping the whole call in
+    # asyncio.wait_for guards against pathological tail latency that bypasses
+    # the inner client's read timeout — e.g., upstream returning a hung body).
+    extractor_call_timeout_s: float = Field(45.0)
+
+    # Skip LLM fact-extraction entirely for episodes larger than this many
+    # characters. Tool-result payloads (web_search dumps, large file reads)
+    # routinely cross 30-500 KB; pushing them through the extractor causes
+    # multi-minute timeouts and `extractor failed; recording episode with 0
+    # facts` storms that peg CPU+RAM. The episode is still recorded and
+    # embedded — vector recall still surfaces it; we just don't burn an LLM
+    # call trying to triple-distil a 500KB blob into structured facts.
+    extractor_skip_threshold_chars: int = Field(30_000)
+
     # If only Qwopus is loaded in LM Studio (Phase 0 day-1 state), set this True
     # to route extraction calls to the judge model as well. Slower, but unblocks
     # Phase 0 evals before the second model is downloaded/loaded.

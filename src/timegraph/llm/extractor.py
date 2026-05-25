@@ -44,7 +44,15 @@ class ExtractorClient:
         )
         self._anthropic: AnthropicJsonClient | None = None
 
-    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=1, max=4))
+    # No retries. The previous wait_exponential(1..4) × stop_after_attempt(2)
+    # made each failed extraction take ~60s and held a slot the whole time —
+    # add_episode in cortex's auto-ingest path queues many of these per
+    # large WebSearch turn and the storm pinned CPU + RAM. Fail fast; the
+    # caller (add_episode) already swallows extractor failures and records
+    # the episode with 0 facts. `reraise=True` keeps the original exception
+    # (e.g., ReadTimeout) in the log line instead of the opaque
+    # `RetryError[<Future ... HTTPStatusError|ReadTimeout>]` wrapper.
+    @retry(stop=stop_after_attempt(1), reraise=True)
     async def extract_facts(
         self,
         episode_content: str,
@@ -57,14 +65,28 @@ class ExtractorClient:
         prompt = tpl.render(content=episode_content, event_time=event_time.isoformat())
 
         backend = self.s.extractor_backend
-        if backend == "anthropic_api":
-            raw, latency_ms = await self._extract_via_anthropic_api(prompt)
-        elif backend == "claude_cli":
-            raw, latency_ms = await self._extract_via_claude_cli(prompt)
-        elif backend == "lm_studio":
-            raw, latency_ms = await self._extract_via_lm_studio(prompt)
-        else:
+
+        async def _dispatch() -> tuple[str, float]:
+            if backend == "anthropic_api":
+                return await self._extract_via_anthropic_api(prompt)
+            if backend == "claude_cli":
+                return await self._extract_via_claude_cli(prompt)
+            if backend == "lm_studio":
+                return await self._extract_via_lm_studio(prompt)
             raise ValueError(f"unknown extractor_backend: {backend!r}")
+
+        # Hard outer timeout — guards against backend HTTP clients that hang
+        # past their own read timeout (rare, but observed when LM Studio is
+        # mid-model-swap or anthropic is throttling without closing the body).
+        try:
+            raw, latency_ms = await asyncio.wait_for(
+                _dispatch(), timeout=self.s.extractor_call_timeout_s
+            )
+        except asyncio.TimeoutError as e:
+            raise ValueError(
+                f"extractor call exceeded hard timeout "
+                f"({self.s.extractor_call_timeout_s}s, backend={backend!r})"
+            ) from e
 
         facts = self._parse_to_facts(raw, event_time, session_id, source)
         return facts, latency_ms
