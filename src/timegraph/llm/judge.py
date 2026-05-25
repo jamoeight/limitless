@@ -25,6 +25,7 @@ from jinja2 import Environment, FileSystemLoader
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from timegraph.config import get_settings
+from timegraph.llm.anthropic_client import AnthropicJsonClient, resolve_anthropic_api_key
 from timegraph.llm.schemas import JUDGE_RESPONSE_FORMAT, JUDGE_SCHEMA
 from timegraph.types import ConflictTriple, Resolution
 
@@ -63,6 +64,7 @@ class JudgeClient:
             autoescape=False,
         )
         self._http = httpx.AsyncClient(timeout=self.s.judge_timeout_s)
+        self._anthropic: AnthropicJsonClient | None = None
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8))
     async def judge_conflicts(
@@ -85,6 +87,8 @@ class JudgeClient:
         )
 
         backend = self.s.judge_backend
+        if backend == "anthropic_api":
+            return await self._judge_via_anthropic_api(prompt)
         if backend == "claude_cli":
             return await self._judge_via_claude_cli(prompt)
         if backend == "lm_studio":
@@ -127,6 +131,49 @@ class JudgeClient:
             call_count=1,
             latency_ms=latency_ms,
             raw_json=raw,
+        )
+
+    async def _judge_via_anthropic_api(self, prompt: str) -> JudgeOutput:
+        # Direct POST to api.anthropic.com. Forced-tool schema gives us
+        # structured output without the `claude -p` agent-loop overhead.
+        # Still exactly ONE LLM round-trip — judge_call_count stays bounded
+        # at 1 (the structural invariant enforced by infer()).
+        api_key = resolve_anthropic_api_key()
+        if not api_key:
+            raise ValueError(
+                "anthropic_api backend requested but no credentials found "
+                "(set ANTHROPIC_API_KEY or run `claude login`)"
+            )
+        if self._anthropic is None:
+            self._anthropic = AnthropicJsonClient(
+                base_url=self.s.anthropic_api_base_url,
+                anthropic_version=self.s.anthropic_api_version,
+                timeout_s=self.s.judge_anthropic_timeout_s,
+            )
+
+        t0 = time.perf_counter()
+        structured = await self._anthropic.call(
+            model=self.s.judge_anthropic_model,
+            prompt=prompt,
+            schema=JUDGE_SCHEMA,
+            schema_name="record_conflict_resolution",
+            schema_description=(
+                "Record the resolution of the candidate conflict pairs. You "
+                "MUST call this tool exactly once with the chosen resolution."
+            ),
+            api_key=api_key,
+            max_tokens=self.s.judge_anthropic_max_tokens,
+        )
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        return JudgeOutput(
+            resolution=Resolution(structured["resolution"]),
+            reason=structured["reason"],
+            confidence=float(structured["confidence"]),
+            thinking=structured.get("thinking", ""),
+            call_count=1,
+            latency_ms=latency_ms,
+            raw_json=json.dumps(structured),
         )
 
     async def _judge_via_claude_cli(self, prompt: str) -> JudgeOutput:
@@ -213,3 +260,6 @@ class JudgeClient:
 
     async def close(self) -> None:
         await self._http.aclose()
+        if self._anthropic is not None:
+            await self._anthropic.close()
+            self._anthropic = None

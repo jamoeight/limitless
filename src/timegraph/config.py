@@ -37,8 +37,11 @@ class Settings(BaseSettings):
 
     # --- Judge backend selection ---
     # "lm_studio" (default): HTTP POST to LM Studio /v1/chat/completions (Qwen3.5-9B).
+    # "anthropic_api": HTTP POST directly to api.anthropic.com (OAuth bearer
+    #   or ANTHROPIC_API_KEY). The plugin path defaults to this when creds
+    #   are available — no LM Studio needed, no `claude -p` subprocess.
     # "claude_cli": shell out to `claude -p` (uses caller's OAuth; --bare requires API key).
-    judge_backend: str = Field("lm_studio", description="lm_studio | claude_cli")
+    judge_backend: str = Field("lm_studio", description="lm_studio | anthropic_api | claude_cli")
     judge_claude_cli_path: str = Field("claude", description="claude CLI binary name/path on PATH")
     judge_claude_model: str = Field(
         "haiku",
@@ -52,6 +55,22 @@ class Settings(BaseSettings):
         90.0,
         description="Subprocess wall-clock. claude -p over OAuth runs an internal agent loop (~15s typical).",
     )
+
+    # --- Anthropic API backend ---
+    # Shared by both judge and extractor when their backend is "anthropic_api".
+    # The credentials path defaults to ~/.claude/.credentials.json (the same
+    # file `claude login` writes) — override with TG_ANTHROPIC_CREDENTIALS_PATH.
+    anthropic_api_base_url: str = Field("https://api.anthropic.com")
+    anthropic_api_version: str = Field("2023-06-01")
+    judge_anthropic_model: str = Field(
+        "haiku",
+        description="haiku/sonnet/opus alias or exact model id (e.g. 'claude-haiku-4-5').",
+    )
+    judge_anthropic_max_tokens: int = Field(2048)
+    judge_anthropic_timeout_s: float = Field(60.0)
+    extractor_anthropic_model: str = Field("haiku")
+    extractor_anthropic_max_tokens: int = Field(2048)
+    extractor_anthropic_timeout_s: float = Field(60.0)
 
     extractor_url: str = Field("http://127.0.0.1:1234/v1", description="Same LM Studio instance (multi-model)")
     extractor_model: str = Field(
@@ -67,9 +86,11 @@ class Settings(BaseSettings):
     use_judge_for_extraction: bool = Field(False)
 
     # Extractor backend selection — mirrors judge_backend. Plugin installs
-    # without LM Studio set this to "claude_cli" so the Stop hook can extract
-    # facts via the caller's OAuth session instead of a phantom LM Studio.
-    extractor_backend: str = Field("lm_studio", description="lm_studio | claude_cli")
+    # default to "anthropic_api" when OAuth/API-key creds are present so the
+    # Stop hook extracts facts via a direct API call instead of LM Studio
+    # (or, before this fix, a `claude -p` subprocess agent loop that ran the
+    # full Claude Code context per call).
+    extractor_backend: str = Field("lm_studio", description="lm_studio | anthropic_api | claude_cli")
     extractor_claude_model: str = Field(
         "haiku",
         description="Model alias for --model when extractor_backend=claude_cli.",

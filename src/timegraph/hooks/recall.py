@@ -36,11 +36,10 @@ from timegraph.hooks._log import silence_to_stderr  # noqa: E402
 
 silence_to_stderr()
 
-# Default to the LM-Studio-free path for plugin installs. setdefault preserves
-# any user override (e.g. dev with LM Studio loaded). Must run before any
-# timegraph.ops import — those instantiate Settings which reads env once.
-os.environ.setdefault("TG_JUDGE_BACKEND", "claude_cli")
-os.environ.setdefault("TG_JUDGE_CLAUDE_MODEL", "haiku")
+# Pick the right judge/extractor backend before any timegraph.ops import.
+from timegraph.hooks.backend_defaults import apply_hook_backend_defaults  # noqa: E402
+
+apply_hook_backend_defaults()
 
 from timegraph.project_id import derive_group_id  # noqa: E402
 

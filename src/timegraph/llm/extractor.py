@@ -23,6 +23,7 @@ from jinja2 import Environment, FileSystemLoader
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from timegraph.config import get_settings
+from timegraph.llm.anthropic_client import AnthropicJsonClient, resolve_anthropic_api_key
 from timegraph.llm.schemas import EXTRACTOR_RESPONSE_FORMAT, EXTRACTOR_SCHEMA
 from timegraph.types import Fact
 
@@ -41,6 +42,7 @@ class ExtractorClient:
         self._model_name = (
             self.s.judge_model if self.s.use_judge_for_extraction else self.s.extractor_model
         )
+        self._anthropic: AnthropicJsonClient | None = None
 
     @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=1, max=4))
     async def extract_facts(
@@ -55,7 +57,9 @@ class ExtractorClient:
         prompt = tpl.render(content=episode_content, event_time=event_time.isoformat())
 
         backend = self.s.extractor_backend
-        if backend == "claude_cli":
+        if backend == "anthropic_api":
+            raw, latency_ms = await self._extract_via_anthropic_api(prompt)
+        elif backend == "claude_cli":
             raw, latency_ms = await self._extract_via_claude_cli(prompt)
         elif backend == "lm_studio":
             raw, latency_ms = await self._extract_via_lm_studio(prompt)
@@ -89,6 +93,37 @@ class ExtractorClient:
             log.error("extractor returned empty content + reasoning_content", message=msg)
             raise ValueError("empty extractor response")
         return raw, latency_ms
+
+    async def _extract_via_anthropic_api(self, prompt: str) -> tuple[str, float]:
+        api_key = resolve_anthropic_api_key()
+        if not api_key:
+            raise ValueError(
+                "anthropic_api backend requested but no credentials found "
+                "(set ANTHROPIC_API_KEY or run `claude login`)"
+            )
+        if self._anthropic is None:
+            self._anthropic = AnthropicJsonClient(
+                base_url=self.s.anthropic_api_base_url,
+                anthropic_version=self.s.anthropic_api_version,
+                timeout_s=self.s.extractor_anthropic_timeout_s,
+            )
+
+        t0 = time.perf_counter()
+        structured = await self._anthropic.call(
+            model=self.s.extractor_anthropic_model,
+            prompt=prompt,
+            schema=EXTRACTOR_SCHEMA,
+            schema_name="record_extracted_facts",
+            schema_description=(
+                "Record the facts extracted from the episode. You MUST call "
+                "this tool exactly once with the extracted facts (or an empty "
+                "list if nothing is extractable)."
+            ),
+            api_key=api_key,
+            max_tokens=self.s.extractor_anthropic_max_tokens,
+        )
+        latency_ms = (time.perf_counter() - t0) * 1000
+        return json.dumps(structured), latency_ms
 
     async def _extract_via_claude_cli(self, prompt: str) -> tuple[str, float]:
         # Mirror JudgeClient._judge_via_claude_cli — shell out to `claude -p`
@@ -177,3 +212,6 @@ class ExtractorClient:
 
     async def close(self) -> None:
         await self._http.aclose()
+        if self._anthropic is not None:
+            await self._anthropic.close()
+            self._anthropic = None
