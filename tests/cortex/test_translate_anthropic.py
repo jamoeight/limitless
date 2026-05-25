@@ -24,6 +24,7 @@ from cortex.canonical import (
     ChunkToolUseDelta,
     CortexMessage,
     CortexRequest,
+    CortexServerTool,
     CortexTool,
     CortexToolChoice,
     ImageBlock,
@@ -199,6 +200,82 @@ def test_tool_choice_variants() -> None:
         req = from_anthropic_request(body)
         assert req.tool_choice.mode == expected_mode
         assert req.tool_choice.name == expected_name
+
+
+def test_web_search_server_tool_roundtrip() -> None:
+    """Anthropic server tools (web_search, computer, bash, text_editor) carry
+    `type` and have NO `input_schema`. They must round-trip opaquely; the
+    legacy `t["input_schema"]` lookup KeyError'd the whole request, which
+    Claude Code surfaced as 4 retries then a dropped WebSearch."""
+    body = {
+        "model": "claude-opus-4-7",
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": "search for cats"}],
+        "tools": [
+            {"type": "web_search_20250305", "name": "web_search", "max_uses": 5},
+            {"type": "bash_20250124", "name": "bash"},
+            {
+                "type": "text_editor_20250124",
+                "name": "str_replace_editor",
+            },
+            {
+                "type": "computer_20250124",
+                "name": "computer",
+                "display_width_px": 1920,
+                "display_height_px": 1080,
+                "display_number": 1,
+            },
+            {
+                "name": "custom_lookup",
+                "description": "Look up a user-defined fact",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"q": {"type": "string"}},
+                    "required": ["q"],
+                },
+            },
+        ],
+    }
+
+    req = from_anthropic_request(body)
+    assert len(req.tools) == 5
+    assert isinstance(req.tools[0], CortexServerTool)
+    assert req.tools[0].server_type == "web_search_20250305"
+    assert req.tools[0].name == "web_search"
+    assert req.tools[0].extras == {"max_uses": 5}
+    assert isinstance(req.tools[1], CortexServerTool)
+    assert req.tools[1].server_type == "bash_20250124"
+    assert isinstance(req.tools[2], CortexServerTool)
+    assert isinstance(req.tools[3], CortexServerTool)
+    assert req.tools[3].extras["display_width_px"] == 1920
+    # User function tools must still parse normally.
+    assert isinstance(req.tools[4], CortexTool)
+    assert req.tools[4].name == "custom_lookup"
+    assert req.tools[4].json_schema["properties"]["q"]["type"] == "string"
+
+    out = to_anthropic_request(req)
+    out_tools = out["tools"]
+    assert out_tools[0] == {
+        "type": "web_search_20250305",
+        "name": "web_search",
+        "max_uses": 5,
+    }
+    assert out_tools[1] == {"type": "bash_20250124", "name": "bash"}
+    assert out_tools[2] == {
+        "type": "text_editor_20250124",
+        "name": "str_replace_editor",
+    }
+    assert out_tools[3] == {
+        "type": "computer_20250124",
+        "name": "computer",
+        "display_width_px": 1920,
+        "display_height_px": 1080,
+        "display_number": 1,
+    }
+    # User function tool comes out in the function shape, not the server shape.
+    assert out_tools[4]["name"] == "custom_lookup"
+    assert out_tools[4]["input_schema"]["properties"]["q"]["type"] == "string"
+    assert "type" not in out_tools[4]
 
 
 def test_unknown_role_rejected() -> None:

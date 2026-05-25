@@ -37,13 +37,58 @@ from cortex.canonical import (
     CortexChunk,
     CortexMessage,
     CortexRequest,
+    CortexServerTool,
     CortexTool,
     CortexToolChoice,
+    CortexToolDef,
     ImageBlock,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
 )
+
+
+def _tool_from_anthropic(t: dict[str, Any]) -> CortexToolDef:
+    """Parse one entry from Anthropic's `tools` array.
+
+    Anthropic server tools (web_search_20250305, computer_20250124,
+    bash_20250124, text_editor_20250124, etc.) carry a `type` field and have
+    no `input_schema`. They're invoked by the model with provider-specific
+    parameters and must be forwarded opaquely — stripping them downgrades the
+    assistant (no WebSearch in research turns) AND returns a 400 to the
+    caller. User-defined function tools have a `name` + `input_schema` and no
+    `type` field (or `type: "custom"` in newer requests).
+    """
+    type_field = t.get("type")
+    has_input_schema = "input_schema" in t
+    is_server_tool = bool(type_field) and type_field != "custom" and not has_input_schema
+    if is_server_tool:
+        extras = {k: v for k, v in t.items() if k not in ("type", "name")}
+        return CortexServerTool(
+            name=t.get("name", type_field),
+            server_type=type_field,
+            extras=extras,
+        )
+    return CortexTool(
+        name=t["name"],
+        description=t.get("description"),
+        json_schema=t["input_schema"],
+    )
+
+
+def _tool_to_anthropic(t: CortexToolDef) -> dict[str, Any]:
+    if isinstance(t, CortexServerTool):
+        out: dict[str, Any] = {"type": t.server_type, "name": t.name}
+        for k, v in t.extras.items():
+            if k in ("type", "name"):
+                continue
+            out[k] = v
+        return out
+    return {
+        "name": t.name,
+        "description": t.description or "",
+        "input_schema": t.json_schema,
+    }
 
 
 # ---------- Request: Anthropic → Canonical ----------
@@ -77,14 +122,7 @@ def from_anthropic_request(body: dict[str, Any]) -> CortexRequest:
             blocks = [_block_from_anthropic(b) for b in raw_content]
         messages.append(CortexMessage(role=role, content=blocks))
 
-    tools = [
-        CortexTool(
-            name=t["name"],
-            description=t.get("description"),
-            json_schema=t["input_schema"],
-        )
-        for t in body.get("tools", [])
-    ]
+    tools: list[CortexToolDef] = [_tool_from_anthropic(t) for t in body.get("tools", [])]
 
     tc_raw = body.get("tool_choice")
     if tc_raw is None:
@@ -182,14 +220,7 @@ def to_anthropic_request(req: CortexRequest) -> dict[str, Any]:
     if req.stop_sequences:
         body["stop_sequences"] = list(req.stop_sequences)
     if req.tools:
-        body["tools"] = [
-            {
-                "name": t.name,
-                "description": t.description or "",
-                "input_schema": t.json_schema,
-            }
-            for t in req.tools
-        ]
+        body["tools"] = [_tool_to_anthropic(t) for t in req.tools]
         tc = req.tool_choice
         if tc.mode == "tool" and tc.name:
             body["tool_choice"] = {"type": "tool", "name": tc.name}

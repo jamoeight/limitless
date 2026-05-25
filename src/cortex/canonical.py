@@ -77,14 +77,44 @@ class CortexMessage(BaseModel):
 
 
 # ---------- Tools ----------
+#
+# Two flavors:
+#   - CortexTool — user-defined "function" tools (JSON Schema input). Both
+#     Anthropic and OpenAI accept these; they round-trip losslessly.
+#   - CortexServerTool — provider-hosted tools (e.g., Anthropic's
+#     `web_search_20250305`, `computer_20250124`, `bash_20250124`,
+#     `text_editor_20250124`). These have NO input_schema; the model invokes
+#     them with provider-specific extras. We carry them opaquely so any caller
+#     who would have hit `api.anthropic.com` directly with the tool keeps
+#     working through the proxy. OpenAI-egress drops server tools (they have
+#     no equivalent there).
 
 
 class CortexTool(BaseModel):
+    kind: Literal["function"] = "function"
     name: str
     description: str | None = None
     # JSON Schema as a dict. Anthropic calls this `input_schema`; OpenAI calls
     # it `function.parameters`. Same content, different field name.
     json_schema: dict[str, Any]
+
+
+class CortexServerTool(BaseModel):
+    kind: Literal["server"] = "server"
+    name: str
+    # Provider-side tool identifier — e.g., "web_search_20250305". Carried
+    # verbatim on egress.
+    server_type: str
+    # Opaque per-tool configuration (max_uses, allowed_domains,
+    # display_width_px, etc.) — preserved on egress, never inspected by the
+    # proxy.
+    extras: dict[str, Any] = Field(default_factory=dict)
+
+
+CortexToolDef = Annotated[
+    CortexTool | CortexServerTool,
+    Field(discriminator="kind"),
+]
 
 
 class CortexToolChoice(BaseModel):
@@ -108,7 +138,7 @@ class CortexRequest(BaseModel):
     top_p: float | None = None
     stop_sequences: list[str] = Field(default_factory=list)
 
-    tools: list[CortexTool] = Field(default_factory=list)
+    tools: list[CortexToolDef] = Field(default_factory=list)
     tool_choice: CortexToolChoice = Field(default_factory=CortexToolChoice)
 
     # Free-form bag for provider-specific extras the translator wants to

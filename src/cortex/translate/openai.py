@@ -43,6 +43,7 @@ from cortex.canonical import (
     CortexChunk,
     CortexMessage,
     CortexRequest,
+    CortexServerTool,
     CortexTool,
     CortexToolChoice,
     ImageBlock,
@@ -276,6 +277,9 @@ def to_openai_request(req: CortexRequest) -> dict[str, Any]:
     if req.stop_sequences:
         body["stop"] = list(req.stop_sequences)
     if req.tools:
+        # OpenAI Chat Completions has no analogue for Anthropic server tools
+        # (web_search_20250305, computer_*, etc.) — drop them on egress rather
+        # than fabricate a function shell that the model can't call.
         body["tools"] = [
             {
                 "type": "function",
@@ -286,7 +290,10 @@ def to_openai_request(req: CortexRequest) -> dict[str, Any]:
                 },
             }
             for t in req.tools
+            if isinstance(t, CortexTool)
         ]
+        if not body["tools"]:
+            body.pop("tools")
         tc = req.tool_choice
         if tc.mode == "tool" and tc.name:
             body["tool_choice"] = {"type": "function", "function": {"name": tc.name}}
