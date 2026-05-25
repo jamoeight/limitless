@@ -46,14 +46,6 @@ Tool-use atomicity is enforced: an assistant `tool_use_id` is never separated fr
 
 **3. Forward.** The upstream sees a small, standard request. Token cost stays flat regardless of session length. The `X-Cortex-Outbound-Tokens` response header is the receipt.
 
-### The bounded-1-LLM-call invariant
-
-The retrieval engine (`src/timegraph/`) enforces `judge_call_count ≤ 1` per query at the type level: [`src/timegraph/llm/judge.py`](src/timegraph/llm/judge.py) raises `ValueError` if handed more than 8 conflict pairs, and `infer()` propagates the limit. No retry loops, no multi-stage refinement, no "let me think again" passes. Stage-1 retrieval has to do the filtering. This is what makes recall latency predictable (~2-5 s) regardless of graph size — calibrated to **1M facts retrievable at ~2.8 s p95**.
-
-### Fail-open architecture
-
-If Neo4j, Qdrant, or the embedder is down, the proxy degrades to plain passthrough — never errors the user. Search for `# noqa: BLE001` to see the swallow-and-log pattern.
-
 ---
 
 ## Results
@@ -242,12 +234,6 @@ Slash commands: `/timegraph-cortex:status`, `…:recall <query>`, `…:forget <p
 - **Tests**: 115 cortex tests + the full timegraph suite, all green. Includes a 40-conversation fuzz test that asserts virtualization never splits a tool-use/tool-result pair.
 
 Limitless itself is CPU-light. Claude Code path needs only the backends (~1 GB RAM). Local-model path additionally needs ~24 GB VRAM.
-
-## Status
-
-- ✅ MVPs 1-4 shipped: passthrough, auto-ingest, virtualization (verbatim recall + reformulation), OpenAI + Anthropic translators, Claude Code plugin, four-hook integration
-- ⚠️ MVP-5 deferred: production auth modes (BYO-key / tenant-key / hybrid), `X-Cortex-Degraded` SSE channel, hosted backends
-- ⚠️ MVP-6 deferred: tool-aware ingest with chunk-level retrieval inside file contents
 
 ## License
 
