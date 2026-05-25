@@ -126,6 +126,12 @@ The upstream sees a standard `/v1/messages` request. Whatever model you call, ca
 
 ## Install
 
+**Prerequisites** (`timegraph init` will fail-fast and tell you which is missing):
+
+- **Docker** — Neo4j and Qdrant run as containers, brought up by `timegraph init` via `docker compose`. On macOS / Windows that means [Docker Desktop](https://docs.docker.com/desktop/) installed *and running* (the daemon, not just the app); on Linux any Docker engine works.
+- **Python 3.11+** with `pipx`.
+- **`claude` CLI on PATH** if you're going to use the Claude Code path (the plugin and the `CORTEX_USE_CLAUDE_CLI_PROVIDER=true` auth mode shell out to it).
+
 Steps 1-3 are shell-agnostic. Steps 4-6 (the env vars + launch) have three syntaxes — pick the block for the shell you're running your client from.
 
 **Why `ANTHROPIC_BASE_URL` is load-bearing:** if you skip it, the install still succeeds and the auto-ingest hooks still fire, but the client talks direct to `api.anthropic.com` and **no virtualization happens** — there's no error, just flat token growth. If you're debugging "why is my session still hitting context limits", check `echo $ANTHROPIC_BASE_URL` first.
@@ -136,6 +142,7 @@ Steps 1-3 are shell-agnostic. Steps 4-6 (the env vars + launch) have three synta
 pipx install --force git+https://github.com/jamoeight/limitless.git
 
 # 2. Bring up backends (Neo4j + Qdrant), apply schema, prefetch embedder (~270 MB).
+#    Requires Docker running — `timegraph init` will tell you if it can't reach the daemon.
 timegraph init
 
 # 3. (Claude Code users) Install the plugin. Auto-launches the proxy on SessionStart.
