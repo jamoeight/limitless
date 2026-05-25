@@ -153,7 +153,7 @@ The `timegraph-cortex` Claude Code plugin is the wiring: four hooks + an MCP ser
 
 - **Docker** — Neo4j and Qdrant run as containers, brought up by `timegraph init` via `docker compose`. On macOS / Windows that means [Docker Desktop](https://docs.docker.com/desktop/) installed *and running* (the daemon, not just the app); on Linux any Docker engine works.
 - **Python 3.11+** with `pipx`.
-- **`claude` CLI on PATH** if you're going to use the Claude Code path (the plugin and the `CORTEX_USE_CLAUDE_CLI_PROVIDER=true` auth mode shell out to it).
+- **`claude` CLI on PATH** if you're going to use the Claude Code path (the plugin's hooks shell out to it). Auth is automatic from there: when no `ANTHROPIC_API_KEY` is set, the proxy reuses the OAuth bearer that `claude login` already put on every request — no extra env var.
 
 ### Steps
 
@@ -180,9 +180,14 @@ timegraph init
 
 ```bash
 export ANTHROPIC_BASE_URL=http://127.0.0.1:8080
-# Pick ONE upstream-auth path:
-export ANTHROPIC_API_KEY=sk-ant-...            # forward an API key as-is, OR
-export CORTEX_USE_CLAUDE_CLI_PROVIDER=true     # piggyback Claude Code OAuth via `claude -p`
+
+# Auth is auto-detected from whatever the client forwards:
+#   - sk-ant-api... (classic API key)   -> sent as x-api-key
+#   - sk-ant-oat... (Claude OAuth)      -> sent as Authorization: Bearer + the
+#                                          oauth-2025-04-20 beta flag
+# If you leave ANTHROPIC_API_KEY unset, Claude Code forwards its OAuth bearer
+# from `claude login` and the proxy bills against your Claude subscription.
+export ANTHROPIC_API_KEY=sk-ant-...            # optional; omit to use OAuth
 
 claude   # or cursor, or your own script
 ```
@@ -191,8 +196,7 @@ claude   # or cursor, or your own script
 
 ```powershell
 $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8080"
-$env:ANTHROPIC_API_KEY = "sk-ant-..."           # OR
-$env:CORTEX_USE_CLAUDE_CLI_PROVIDER = "true"
+$env:ANTHROPIC_API_KEY = "sk-ant-..."           # optional; omit to bill your Claude OAuth login
 
 claude
 ```
@@ -201,14 +205,12 @@ Persist across sessions:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "http://127.0.0.1:8080", "User")
-[Environment]::SetEnvironmentVariable("CORTEX_USE_CLAUDE_CLI_PROVIDER", "true", "User")
 ```
 
 ### 4-6. Env vars + launch — cmd.exe (Windows)
 
 ```cmd
 set ANTHROPIC_BASE_URL=http://127.0.0.1:8080
-set CORTEX_USE_CLAUDE_CLI_PROVIDER=true
 claude
 ```
 
@@ -216,7 +218,6 @@ Persist with `setx` (writes to user environment, open a new shell to pick up):
 
 ```cmd
 setx ANTHROPIC_BASE_URL http://127.0.0.1:8080
-setx CORTEX_USE_CLAUDE_CLI_PROVIDER true
 ```
 
 **Verify:** `curl http://127.0.0.1:8080/health` returns `{"status":"ok"}`. After a few turns, every upstream response carries `X-Cortex-Outbound-Tokens` — that's the size of the request actually forwarded. Watch it stay flat as your session grows.
@@ -261,7 +262,7 @@ Slash commands: `/timegraph-cortex:status`, `…:recall <query>`, `…:forget <p
 - **Proxy**: Python 3.11, FastAPI, httpx, sse-starlette
 - **Graph**: Neo4j 5.24 Community
 - **Vectors**: Qdrant 1.12.4 (HNSW, 768D cosine)
-- **LLM runtime**: Anthropic (`claude -p` OAuth or API key) or LM Studio (OpenAI-compat) for the local path
+- **LLM runtime**: Anthropic Messages API (API key *or* Claude OAuth bearer — both routed directly to `api.anthropic.com`) or LM Studio (OpenAI-compat) for the local path
 - **Default models**: Qwen3.5-9B (local generation + extraction) + nomic-embed-text-v1.5 (embedder, 768D)
 - **Tests**: 115 cortex tests + the full timegraph suite, all green. Includes a 40-conversation fuzz test that asserts virtualization never splits a tool-use/tool-result pair.
 
