@@ -28,6 +28,7 @@ from cortex.canonical import (
     CortexTool,
     CortexToolChoice,
     ImageBlock,
+    OpaqueBlock,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
@@ -276,6 +277,83 @@ def test_web_search_server_tool_roundtrip() -> None:
     assert out_tools[4]["name"] == "custom_lookup"
     assert out_tools[4]["input_schema"]["properties"]["q"]["type"] == "string"
     assert "type" not in out_tools[4]
+
+
+def test_server_tool_use_response_block_round_trips_as_opaque() -> None:
+    """When Anthropic streams back a `server_tool_use` block (model invokes
+    web_search) or `web_search_tool_result`, the legacy parser raised
+    `ValueError: unknown block type: 'server_tool_use'` and the whole
+    request 502'd. Now these flow through as OpaqueBlock and re-egress
+    byte-equivalent."""
+    body = {
+        "model": "claude-opus-4-7",
+        "max_tokens": 256,
+        "messages": [
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Let me search."},
+                    {
+                        "type": "server_tool_use",
+                        "id": "srvtoolu_01ABC",
+                        "name": "web_search",
+                        "input": {"query": "claude opus"},
+                    },
+                    {
+                        "type": "web_search_tool_result",
+                        "tool_use_id": "srvtoolu_01ABC",
+                        "content": [
+                            {
+                                "type": "web_search_result",
+                                "url": "https://example.com",
+                                "title": "Example",
+                                "encrypted_content": "abc123",
+                            }
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+
+    req = from_anthropic_request(body)
+    asst = req.messages[0]
+    assert isinstance(asst.content[0], TextBlock)
+    assert isinstance(asst.content[1], OpaqueBlock)
+    assert asst.content[1].original_type == "server_tool_use"
+    assert asst.content[1].payload["id"] == "srvtoolu_01ABC"
+    assert asst.content[1].payload["name"] == "web_search"
+    assert isinstance(asst.content[2], OpaqueBlock)
+    assert asst.content[2].original_type == "web_search_tool_result"
+    assert asst.content[2].payload["tool_use_id"] == "srvtoolu_01ABC"
+
+    # Round-trip MUST produce byte-equivalent blocks for the opaque pair.
+    out = to_anthropic_request(req)
+    out_blocks = out["messages"][0]["content"]
+    assert out_blocks[1] == body["messages"][0]["content"][1]
+    assert out_blocks[2] == body["messages"][0]["content"][2]
+
+
+def test_opaque_block_via_streamed_content_block_start() -> None:
+    """SSE `content_block_start` carries the new block type. The parser
+    must convert it to OpaqueBlock instead of raising."""
+    chunk = parse_anthropic_event(
+        "content_block_start",
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {
+                "type": "server_tool_use",
+                "id": "srvtoolu_xyz",
+                "name": "web_search",
+                "input": {},
+            },
+        },
+    )
+    assert isinstance(chunk, ChunkContentBlockStart)
+    assert isinstance(chunk.block, OpaqueBlock)
+    assert chunk.block.original_type == "server_tool_use"
+    assert chunk.block.payload["id"] == "srvtoolu_xyz"
 
 
 def test_unknown_role_rejected() -> None:

@@ -38,6 +38,7 @@ from cortex.canonical import (
     CortexChunk,
     CortexMessage,
     ImageBlock,
+    OpaqueBlock,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
@@ -110,6 +111,14 @@ def _canonical_block(b: CortexBlock) -> dict[str, Any]:
             "content": content,
             "err": b.is_error,
         }
+    if isinstance(b, OpaqueBlock):
+        # Hash needs to differentiate server_tool_use blocks across turns —
+        # `id` (if present) gives stable identity, otherwise the full payload.
+        return {
+            "t": "opaque",
+            "orig": b.original_type,
+            "payload": b.payload,
+        }
     return {"t": "unknown"}
 
 
@@ -155,6 +164,14 @@ def message_to_text(message: CortexMessage, *, include_tool_blocks: bool = True)
                 payload = " ".join(_subblock_text(sub) for sub in b.content)
             err = " (error)" if b.is_error else ""
             parts.append(f"[tool_result{err}: {payload}]")
+        elif isinstance(b, OpaqueBlock):
+            # Opaque blocks (server_tool_use, web_search_tool_result, etc.)
+            # have no canonical text. We include a short marker so the
+            # extractor sees the turn was non-empty, but skip the payload —
+            # tool-result content is captured by tool_use/tool_result blocks
+            # elsewhere in the same conversation.
+            if include_tool_blocks:
+                parts.append(f"[{b.original_type}]")
     return "\n".join(parts)
 
 

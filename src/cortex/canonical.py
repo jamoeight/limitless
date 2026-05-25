@@ -56,8 +56,25 @@ class ToolResultBlock(BaseModel):
     is_error: bool = False
 
 
+class OpaqueBlock(BaseModel):
+    """Pass-through for block types the proxy doesn't model strictly.
+
+    Anthropic ships new block kinds faster than we can model them — server
+    tools emit `server_tool_use` + `web_search_tool_result`, extended-thinking
+    adds `redacted_thinking`, etc. Rather than raise on every new shape and
+    return a 502 (which is what the legacy `unknown block type` ValueError
+    did, breaking WebSearch end-to-end), unrecognized blocks land here. The
+    raw dict is carried verbatim and re-emitted on egress byte-equivalent.
+    OpenAI egress drops them (no analogue exists there).
+    """
+
+    type: Literal["opaque"] = "opaque"
+    original_type: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 CortexBlock = Annotated[
-    TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock,
+    TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock | OpaqueBlock,
     Field(discriminator="type"),
 ]
 

@@ -42,6 +42,7 @@ from cortex.canonical import (
     CortexToolChoice,
     CortexToolDef,
     ImageBlock,
+    OpaqueBlock,
     TextBlock,
     ToolResultBlock,
     ToolUseBlock,
@@ -197,7 +198,12 @@ def _block_from_anthropic(b: dict[str, Any]) -> CortexBlock:
         # Extended-thinking blocks: preserve the text payload but lose the
         # signature. Models tolerate this on retry; full fidelity comes later.
         return TextBlock(text=b.get("thinking", ""))
-    raise ValueError(f"unknown block type: {t!r}")
+    # Anything else (server_tool_use, web_search_tool_result,
+    # redacted_thinking, future block kinds the API adds) rides through as
+    # OpaqueBlock. Raising used to 502 the whole request — the legacy
+    # behavior broke WebSearch end-to-end because every web_search result
+    # streamed back a `server_tool_use` block and crashed the SSE parser.
+    return OpaqueBlock(original_type=str(t) if t is not None else "unknown", payload=dict(b))
 
 
 # ---------- Request: Canonical → Anthropic ----------
@@ -278,6 +284,10 @@ def _block_to_anthropic(b: CortexBlock) -> dict[str, Any]:
         if b.is_error:
             out["is_error"] = True
         return out
+    if isinstance(b, OpaqueBlock):
+        # Byte-equivalent passthrough; the payload was captured verbatim on
+        # ingress so the upstream sees what it would have seen direct.
+        return dict(b.payload)
     raise TypeError(f"cannot serialize block type {type(b).__name__}")
 
 
