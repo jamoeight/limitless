@@ -102,6 +102,19 @@ class CortexSettings(BaseSettings):
     hash_cache_max_entries: int = Field(10_000, description="LRU bound for span-hash → episode mapping")
     ingest_min_chars: int = Field(20, description="Skip ingest for spans smaller than this")
 
+    # --- Worker lifecycle ---
+    # After this many handled requests, the proxy logs + sends itself SIGTERM
+    # so uvicorn shuts down cleanly. The SessionStart hook's _ensure_cortex
+    # respawns on the next session event. Bounds long-tail memory growth from
+    # fastembed buffers, accumulated stream state, leaked allocations from
+    # crashed streams, and Python's reluctance to return memory to the OS.
+    # Set to 0 to disable recycling (long-running server mode).
+    recycle_after_requests: int = Field(500, description="0 disables; otherwise SIGTERM self after N requests")
+    recycle_drain_seconds: float = Field(
+        3.0,
+        description="Grace period between scheduling exit and signalling — lets in-flight streams drain",
+    )
+
     # --- Feature flags ---
     # MVP-2 turns on auto-ingest by default — the proxy's defining behavior.
     # MVP-3 will flip virtualization on; MVP-6 turns on tool-aware ingest.

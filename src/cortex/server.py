@@ -15,8 +15,10 @@ so MVP-3 virtualization and MVP-4 OpenAI routing slot in with zero churn.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import signal
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -176,6 +178,9 @@ def _build_app(
         app.state.session_registry = sr
         app.state.settings = s
         app.state.recall_fn = explicit_recall_fn or real_recall
+        # Worker-recycle bookkeeping (see _maybe_recycle_worker below).
+        app.state.request_count = 0
+        app.state.recycle_scheduled = False
         if explicit_verbatim_recall_fn is not None:
             app.state.verbatim_recall_fn = explicit_verbatim_recall_fn
         elif s.enable_verbatim_recall:
@@ -261,6 +266,7 @@ def _register_routes(app: FastAPI) -> None:
 async def _handle_messages(request: Request, *, ingress: str) -> Any:
     """Common request handler. `ingress` is "anthropic" or "openai" and
     controls which translator is used on parse + egress."""
+    _maybe_recycle_worker(request.app)
     body_bytes = await request.body()
     try:
         raw = json.loads(body_bytes)
@@ -345,6 +351,57 @@ async def _handle_messages(request: Request, *, ingress: str) -> Any:
     )
 
 
+def _maybe_recycle_worker(app: FastAPI) -> None:
+    """Increment the per-process request counter; if it crosses the configured
+    threshold, schedule a graceful SIGTERM after a short drain window so the
+    SessionStart hook respawns a fresh cortex-serve. Idempotent: once
+    scheduled, repeated calls are no-ops.
+
+    This bounds the long-tail memory growth observed in the user's
+    16-minute / 243-request session — fastembed buffers, accumulated stream
+    state from crashed `server_tool_use` streams, and Python's reluctance
+    to return memory to the OS combined to pin ~9.5 GB resident. Set
+    CORTEX_RECYCLE_AFTER_REQUESTS=0 to disable.
+    """
+    state = app.state
+    state.request_count = getattr(state, "request_count", 0) + 1
+    s: CortexSettings = state.settings
+    threshold = getattr(s, "recycle_after_requests", 0)
+    if threshold <= 0:
+        return
+    if state.request_count < threshold:
+        return
+    if getattr(state, "recycle_scheduled", False):
+        return
+    state.recycle_scheduled = True
+    drain_s = max(0.0, float(getattr(s, "recycle_drain_seconds", 3.0)))
+    log.info(
+        "cortex.recycle.scheduled",
+        request_count=state.request_count,
+        threshold=threshold,
+        drain_seconds=drain_s,
+    )
+
+    async def _exit_after_drain() -> None:
+        try:
+            await asyncio.sleep(drain_s)
+        except asyncio.CancelledError:
+            pass
+        log.info("cortex.recycle.exiting", pid=os.getpid())
+        try:
+            os.kill(os.getpid(), signal.SIGTERM)
+        except Exception:  # noqa: BLE001
+            # Fallback for Windows quirks where SIGTERM mapping is flaky.
+            os._exit(0)
+
+    try:
+        asyncio.create_task(_exit_after_drain())
+    except RuntimeError:
+        # No running loop (e.g. tests calling _maybe_recycle_worker directly
+        # without an event loop) — just mark it scheduled.
+        pass
+
+
 def _stream_response(
     provider: Provider,
     req: CortexRequest,
@@ -399,10 +456,18 @@ def _stream_response(
                     )
                 }
         finally:
+            # Extract the assistant message THEN drop the chunk buffer before
+            # scheduling the (potentially queued behind the ingest semaphore)
+            # add_episode task. Each chunk is a Pydantic model and the buffer
+            # for a long response can be many MB — with 167 crashed
+            # server_tool_use streams in a busy session those buffers were
+            # held the full lifetime of every concurrent request.
+            asst = None
             if session is not None and collected:
                 asst = assistant_message_from_chunks(collected)
-                if asst is not None:
-                    session.schedule(asst)
+            collected.clear()
+            if asst is not None and session is not None:
+                session.schedule(asst)
 
     return EventSourceResponse(event_generator(), headers=_response_headers(virt_report))
 
@@ -435,14 +500,19 @@ async def _aggregate_response(
                 content=content,
                 headers=_response_headers(virt_report),
             )
-    if session is not None:
-        asst = assistant_message_from_chunks(chunks)
-        if asst is not None:
-            session.schedule(asst)
     if ingress == "anthropic":
         body = response_from_chunks(chunks, req.model)
     else:
         body = openai_response_from_chunks(chunks, req.model)
+    # Extract the assistant message before clearing the chunk buffer so the
+    # ingest schedule call doesn't hold the full stream in memory.
+    if session is not None:
+        asst = assistant_message_from_chunks(chunks)
+        chunks.clear()
+        if asst is not None:
+            session.schedule(asst)
+    else:
+        chunks.clear()
     return JSONResponse(content=body, headers=_response_headers(virt_report))
 
 
