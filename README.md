@@ -126,11 +126,36 @@ The upstream sees a standard `/v1/messages` request. Whatever model you call, ca
 
 ## Install
 
-**Prerequisites** (`timegraph init` will fail-fast and tell you which is missing):
+### What actually runs on your machine
+
+Limitless is *not* a self-contained Claude Code plugin — it's a small distributed system that the plugin happens to drive. Knowing the topology up front means nothing about the install surprises you:
+
+```
+   Claude Code  ──hooks──▶  pipx CLIs  ──┬──▶  cortex.server  ──▶  api.anthropic.com
+   (or any                  (timegraph-*,│     (Python proxy,
+    Anthropic-                cortex-*)  │      :8080, auto-
+    compat client)                       │      launched by
+                                         │      SessionStart hook)
+                                         │
+                                         ├──▶  Neo4j           (Docker container, :7687)
+                                         ├──▶  Qdrant          (Docker container, :6333/:6334)
+                                         └──▶  fastembed        (in-process, ~270 MB model
+                                                                 downloaded on first init)
+```
+
+The `timegraph-cortex` Claude Code plugin is the wiring: four hooks + an MCP server manifest + three slash commands. It owns no state and runs no LLM calls of its own — every hook shells out to a pipx-installed CLI, which connects to the local backends. If the backends aren't up, the hooks no-op silently (fail-open) — you get zero memory and zero virtualization, exactly like skipping `ANTHROPIC_BASE_URL`.
+
+**Embedding the backends** (no-Docker install) is on the roadmap — would mean swapping Neo4j for an embedded graph (Kuzu / DuckDB-graph) and Qdrant for FAISS / sqlite-vss. Deferred because both substitutions have real retrieval-performance tradeoffs that need calibration against the headline numbers above. Today: Docker is required.
+
+### Prerequisites
+
+`timegraph init` fails fast and tells you which one is missing:
 
 - **Docker** — Neo4j and Qdrant run as containers, brought up by `timegraph init` via `docker compose`. On macOS / Windows that means [Docker Desktop](https://docs.docker.com/desktop/) installed *and running* (the daemon, not just the app); on Linux any Docker engine works.
 - **Python 3.11+** with `pipx`.
 - **`claude` CLI on PATH** if you're going to use the Claude Code path (the plugin and the `CORTEX_USE_CLAUDE_CLI_PROVIDER=true` auth mode shell out to it).
+
+### Steps
 
 Steps 1-3 are shell-agnostic. Steps 4-6 (the env vars + launch) have three syntaxes — pick the block for the shell you're running your client from.
 
