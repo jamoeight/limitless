@@ -219,9 +219,11 @@ async def test_last_k_groups_kept_verbatim() -> None:
         system="sys",
     )
     settings = CortexSettings(last_k_spans=3, safety_margin_tokens=0)
-    # 650 - 512 - 1 (system) = 137-token budget. 16 msgs = 144 tokens
-    # (overflows → trims); 6 verbatim msgs ≈ 54 tokens (fits).
-    new_req, report = await virtualize(req, settings, context_limit=650)
+    # M = limit - safety = 100. 16 msgs ≈ 144 tokens (overflows → trims);
+    # 6 verbatim msgs ≈ 54 tokens (fits).
+    # (tools/system/max_tokens deliberately NOT subtracted from M — see
+    #  virtualize.py: messages-only budget semantic).
+    new_req, report = await virtualize(req, settings, context_limit=100)
 
     # 3 groups × 2 messages = 6 kept verbatim.
     assert report.kept_message_count == 6
@@ -251,10 +253,10 @@ async def test_system_prompt_is_only_appended_never_replaced() -> None:
     async def fake_recall(query, group_id, budget):
         return "(- alice likes coffee)\n(- bob lives in seattle)"
 
-    # 400 - 256 - ~13 (system) = 131-token budget. 12 msgs ≈ 150 tokens
-    # (overflows → virtualizes); 4 verbatim msgs ≈ 50 tokens (fits).
+    # M = 120 - 0 = 120. 12 msgs ≈ 150 tokens (overflows → virtualizes);
+    # 4 verbatim msgs ≈ 50 tokens (fits).
     new_req, report = await virtualize(
-        req, settings, recall_fn=fake_recall, context_limit=400
+        req, settings, recall_fn=fake_recall, context_limit=120
     )
     # System prompt starts with the original verbatim
     assert new_req.system.startswith(original_system)
@@ -285,6 +287,86 @@ async def test_no_virtualization_needed_returns_original() -> None:
 
 
 # ---------- Budget enforcement ----------
+
+
+@pytest.mark.asyncio
+async def test_messages_only_budget_ignores_tools_and_max_tokens() -> None:
+    """Regression: with the legacy math, Claude Code's tool-heavy installs
+    (≥20k chars/4 tools_t + 32k max_tokens) made M negative against a 50k
+    context_limit and forced degrade=true on 100% of requests. The new math
+    excludes tools/system/max_tokens from M — virtualize only looks at
+    messages."""
+    # Realistic Claude Code shape: 28k tokens of tools, 32k max_tokens, BUT
+    # message history is small (~150 tokens). Old math: M = 50000-32000-28000
+    # -1024 = NEGATIVE → degrade. New math: M = 50000-1024 = ~49k → messages
+    # short-circuit, NO degrade.
+    big_tools = [
+        {"name": f"tool_{i}", "input_schema": {"type": "object", "description": "x" * 400}}
+        for i in range(70)
+    ]
+    msgs = []
+    for i in range(6):
+        msgs.append(_u(f"older message {i} sufficiently long to be ingested"))
+        msgs.append(_a(f"older reply {i} also long enough"))
+    req = CortexRequest(
+        model="claude-opus-4-7",
+        max_tokens=32_000,
+        messages=msgs,
+        system="You are Claude Code." * 30,
+    )
+    settings = CortexSettings(last_k_spans=4, safety_margin_tokens=1024)
+
+    new_req, report = await virtualize(
+        req,
+        settings,
+        context_limit=50_000,
+        tools_serialized=big_tools,
+    )
+
+    assert report.degraded is False, (
+        f"degraded={report.degraded} notes={report.notes} — tools should not "
+        "block virtualize when messages fit the budget"
+    )
+    # Sanity: messages are small enough to short-circuit (no trim needed)
+    assert report.cold_group_count == 0
+    # Messages preserved verbatim.
+    assert new_req.messages == req.messages
+
+
+@pytest.mark.asyncio
+async def test_messages_only_budget_engages_when_messages_cross_threshold() -> None:
+    """When messages alone cross the budget, virtualize SHOULD trim — even
+    with realistic Claude Code tool overhead in tools_serialized."""
+    big_tools = [
+        {"name": f"tool_{i}", "input_schema": {"type": "object", "description": "x" * 400}}
+        for i in range(70)
+    ]
+    # 30 messages each ~50 chars → ~12 tokens × 30 = ~360 tokens. Use a tight
+    # budget to trigger trimming.
+    msgs = []
+    for i in range(30):
+        msgs.append(_u(f"user message {i} ingested fine here ok"))
+        msgs.append(_a(f"assistant reply {i} retained fine here yes"))
+    req = CortexRequest(
+        model="claude-opus-4-7",
+        max_tokens=32_000,
+        messages=msgs,
+        system="big system prompt " * 100,
+    )
+    settings = CortexSettings(last_k_spans=4, safety_margin_tokens=0)
+
+    new_req, report = await virtualize(
+        req,
+        settings,
+        context_limit=200,
+        tools_serialized=big_tools,
+    )
+
+    # With the new math, M = 200 - 0 = 200; 60 msgs ≈ 600 tokens → trim.
+    # Last-4 atomic groups (8 msgs) ≈ 80 tokens < 200 → fits → not degraded.
+    assert report.degraded is False
+    assert report.cold_group_count > 0
+    assert report.kept_message_count == 8
 
 
 @pytest.mark.asyncio
@@ -384,8 +466,7 @@ async def test_virtualize_respects_caller_intent_via_settings() -> None:
         system="sys",
     )
     settings = CortexSettings(last_k_spans=2, safety_margin_tokens=0)
-    # 180 - 128 - 1 (system) = 51-token budget; 20 short msgs ≈ 60 tokens
-    # overflows budget → virtualization kicks in.
-    new_req, report = await virtualize(req, settings, context_limit=180)
+    # M = 50 - 0 = 50; 20 short msgs ≈ 60 tokens overflows → trim.
+    new_req, report = await virtualize(req, settings, context_limit=50)
     # virtualize did its job — fewer messages kept.
     assert report.kept_message_count < len(msgs)

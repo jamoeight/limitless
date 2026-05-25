@@ -317,6 +317,16 @@ async def virtualize(
     vfn = verbatim_recall_fn or _noop_verbatim_recall
 
     # Compute budget.
+    #
+    # `limit` here is the MESSAGES-ONLY budget — the amount of non-preloaded
+    # context (user/assistant turns) the proxy lets through before virtualize
+    # engages. Tools, system prompt, and max_tokens deliberately do NOT count
+    # against M: they live in Anthropic's cached prefix (charged at 10% on
+    # subsequent reads) and are not shrinkable without breaking the request.
+    # Treating them as part of the budget made M go negative on tool-heavy
+    # installs (e.g. Claude Code with 4 plugins: ~30-50k real tokens of tool
+    # defs alone), forcing virtualize to degrade on every request. That
+    # defeated the entire point of the proxy.
     limit = context_limit if context_limit is not None else context_limit_for(req.model)
     system_t = approx_tokens(req.system or "")
     tools_t = tools_tokens(tools_serialized or [])
@@ -324,7 +334,7 @@ async def virtualize(
     report.post_system_token_estimate = system_t
     report.original_total_token_estimate = report.original_token_estimate + system_t + tools_t
     report.outbound_token_estimate = report.original_total_token_estimate
-    M = limit - req.max_tokens - system_t - tools_t - settings.safety_margin_tokens
+    M = limit - settings.safety_margin_tokens
 
     groups = compute_atomic_groups(req.messages)
     if not groups:

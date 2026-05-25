@@ -62,13 +62,19 @@ class CortexSettings(BaseSettings):
     pinned_budget_pct: float = Field(0.15)
     speculative_budget_pct: float = Field(0.10)
     safety_margin_tokens: int = Field(1024, description="Headroom subtracted from upstream context limit")
-    # When set, overrides the built-in model→context-window table in
-    # virtualize.context_limit_for(). Required when targeting LM Studio /
-    # local-model setups whose effective context is determined by the
-    # operator's loaded-model config, not the model family name.
+    # Messages-only budget: cortex virtualizes when user/assistant messages
+    # exceed this many tokens (chars/4 estimate). Tools, system prompt, and
+    # max_tokens are NOT charged against this budget — they live in
+    # Anthropic's cached prefix and shouldn't trigger compaction. With the
+    # default 50_000 from the SessionStart hook, a Claude Code session
+    # virtualizes once its message history alone crosses ~50k tokens,
+    # regardless of how many tools/skills/plugins are loaded.
+    #
+    # When None, virtualize.context_limit_for() chooses based on the model
+    # family (currently ~200k for Sonnet/Opus, smaller for Haiku).
     upstream_context_limit: int | None = Field(
         None,
-        description="Override the upstream context window in tokens (use when the model's loaded ctx differs from its native max)",
+        description="Messages-only budget (chars/4 estimate) before virtualize engages — tools/system/max_tokens excluded",
     )
     cold_summary_max_chars_per_msg: int = Field(
         2000,

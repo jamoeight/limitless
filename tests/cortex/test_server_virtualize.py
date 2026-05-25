@@ -95,13 +95,14 @@ def _setup_app(
     recall_fn=_stub_recall,
     verbatim_recall_fn=None,
     enable_verbatim_recall: bool = False,
-    # Small context limit + zero safety margin forces virtualization on the
-    # synthetic conversations in this suite (each ~50 char msg → ~12 tokens).
-    # 150 + 0 - 64 (max_tokens) = 86-token budget. 4 verbatim msgs ≈ 40 tokens
-    # (fits); 12 msgs ≈ 102 tokens (overflows → trims). Real production
-    # setups use the model's true context window. The short-circuit-when-fits
-    # behavior is exercised in test_virtualize.py.
-    upstream_context_limit: int = 150,
+    # Small messages-only budget + zero safety margin forces virtualization on
+    # the synthetic conversations in this suite (each ~50 char msg ≈ 12 tokens).
+    # M = 100 - 0 = 100. 4 verbatim msgs ≈ 40 tokens (fits); 12 msgs ≈ 102 tokens
+    # overflows → trims. Tools/system/max_tokens deliberately not subtracted
+    # (messages-only semantic — see virtualize.py). Real production setups
+    # use ~50_000 from session_start.py. The short-circuit-when-fits behavior
+    # is exercised in test_virtualize.py.
+    upstream_context_limit: int = 100,
 ):
     settings = CortexSettings(
         enable_virtualization=enable_virtualization,
