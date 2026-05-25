@@ -248,3 +248,104 @@ async def test_provider_strips_protected_headers_from_extras() -> None:
     assert captured_headers["anthropic-version"] != "2099-12-31"
     # But the benign passthrough header makes it through.
     assert captured_headers.get("anthropic-beta") == "feature-flag-xyz"
+
+
+@pytest.mark.asyncio
+async def test_oauth_token_uses_bearer_auth_and_beta_flag() -> None:
+    """OAuth tokens (sk-ant-oat...) MUST be sent as `Authorization: Bearer ...`
+    with the `oauth-2025-04-20` beta flag, NOT as `x-api-key`. Without this
+    the public /v1/messages endpoint rejects the request. This is the path
+    used when ANTHROPIC_BASE_URL routes Claude Code's OAuth bearer through
+    the cortex proxy."""
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        for k, v in request.headers.items():
+            captured[k.lower()] = v
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/event-stream"},
+            content=_TEXT_SSE,
+        )
+
+    s = CortexSettings()
+    p = AnthropicProvider(s)
+    p._client = httpx.AsyncClient(
+        base_url=s.anthropic_base_url, transport=httpx.MockTransport(handler)
+    )
+    try:
+        async for _ in p.stream(_simple_req(), api_key="sk-ant-oat01-EXAMPLE"):
+            pass
+    finally:
+        await p.aclose()
+
+    assert captured["authorization"] == "Bearer sk-ant-oat01-EXAMPLE"
+    assert "x-api-key" not in captured
+    assert "oauth-2025-04-20" in captured["anthropic-beta"]
+
+
+@pytest.mark.asyncio
+async def test_api_key_token_uses_xapikey_not_bearer() -> None:
+    """Classic API keys (sk-ant-api...) must NOT get bumped onto the OAuth
+    path — they go on `x-api-key`, no bearer header, no oauth beta flag."""
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        for k, v in request.headers.items():
+            captured[k.lower()] = v
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/event-stream"},
+            content=_TEXT_SSE,
+        )
+
+    s = CortexSettings()
+    p = AnthropicProvider(s)
+    p._client = httpx.AsyncClient(
+        base_url=s.anthropic_base_url, transport=httpx.MockTransport(handler)
+    )
+    try:
+        async for _ in p.stream(_simple_req(), api_key="sk-ant-api03-EXAMPLE"):
+            pass
+    finally:
+        await p.aclose()
+
+    assert captured["x-api-key"] == "sk-ant-api03-EXAMPLE"
+    assert "authorization" not in captured
+    # No OAuth beta when using API key auth.
+    assert "oauth-2025-04-20" not in captured.get("anthropic-beta", "")
+
+
+@pytest.mark.asyncio
+async def test_oauth_beta_merges_with_caller_supplied_betas() -> None:
+    """Caller passes their own `anthropic-beta: feature-x`. With OAuth auth,
+    the OAuth flag must NOT clobber it — both end up comma-joined."""
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        for k, v in request.headers.items():
+            captured[k.lower()] = v
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/event-stream"},
+            content=_TEXT_SSE,
+        )
+
+    s = CortexSettings()
+    p = AnthropicProvider(s)
+    p._client = httpx.AsyncClient(
+        base_url=s.anthropic_base_url, transport=httpx.MockTransport(handler)
+    )
+    try:
+        async for _ in p.stream(
+            _simple_req(),
+            api_key="sk-ant-oat01-EXAMPLE",
+            extra_headers={"anthropic-beta": "feature-x"},
+        ):
+            pass
+    finally:
+        await p.aclose()
+
+    beta = captured["anthropic-beta"]
+    assert "oauth-2025-04-20" in beta
+    assert "feature-x" in beta

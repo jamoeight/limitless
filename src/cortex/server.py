@@ -153,10 +153,23 @@ def _build_app(
             r = explicit_registry
         else:
             r = ProviderRegistry()
+            # AnthropicProvider auto-detects OAuth bearer tokens (sk-ant-oat...)
+            # vs classic API keys (sk-ant-api...) per request, so it serves both
+            # the "user set ANTHROPIC_API_KEY" and "user is logged in via
+            # `claude login`" flows transparently — tool_use blocks flow back
+            # to the caller in both cases.
+            #
+            # CORTEX_USE_CLAUDE_CLI_PROVIDER is preserved for backwards compat
+            # but no longer routes to the `claude -p` subprocess provider —
+            # that path stripped `req.tools` and broke any agentic caller. If
+            # someone genuinely needs the subprocess behavior for headless
+            # benchmarks, they can instantiate ClaudeCliProvider explicitly.
             if s.use_claude_cli_provider:
-                r.register(ClaudeCliProvider(s))
-            else:
-                r.register(AnthropicProvider(s))
+                log.info(
+                    "cortex.boot.oauth_mode",
+                    note="CORTEX_USE_CLAUDE_CLI_PROVIDER=true detected; using OAuth-aware AnthropicProvider (subprocess path retired; it stripped tools)",
+                )
+            r.register(AnthropicProvider(s))
             r.register(OpenAIProvider(s))
         sr = explicit_session_registry or SessionRegistry(s)
         app.state.registry = r

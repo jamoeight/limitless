@@ -1,4 +1,20 @@
-"""Anthropic Messages API provider."""
+"""Anthropic Messages API provider.
+
+Auth mode is auto-detected from the token shape:
+
+  - `sk-ant-api...`  -> classic API key, sent as `x-api-key`.
+  - `sk-ant-oat...`  -> Claude OAuth access token (from `~/.claude/.credentials.json`,
+    populated by `claude login`). Sent as `Authorization: Bearer ...` along
+    with the `anthropic-beta: oauth-2025-04-20` opt-in header that the public
+    /v1/messages endpoint requires for OAuth-issued tokens.
+
+The detection is intentional: when a caller sets `ANTHROPIC_BASE_URL` to
+cortex, Claude Code forwards whatever auth it would have sent to
+api.anthropic.com directly, which is the OAuth bearer in the common
+no-API-key case. Recognizing it here means cortex re-uses the user's Claude
+subscription transparently and keeps `req.tools` flowing end-to-end (unlike
+the legacy `claude -p` subprocess path, which had to strip tools).
+"""
 
 from __future__ import annotations
 
@@ -14,6 +30,13 @@ from cortex.config import CortexSettings, get_cortex_settings
 from cortex.translate.anthropic import parse_anthropic_event, to_anthropic_request
 
 log = structlog.get_logger(__name__)
+
+_OAUTH_TOKEN_PREFIX = "sk-ant-oat"
+_OAUTH_BETA_FLAG = "oauth-2025-04-20"
+
+
+def _is_oauth_token(api_key: str) -> bool:
+    return api_key.startswith(_OAUTH_TOKEN_PREFIX)
 
 
 class AnthropicProvider:
@@ -47,18 +70,31 @@ class AnthropicProvider:
         body = to_anthropic_request(req)
         body["stream"] = True
 
-        headers = {
-            "x-api-key": api_key,
+        headers: dict[str, str] = {
             "anthropic-version": self._s.anthropic_version,
             "content-type": "application/json",
             "accept": "text/event-stream",
         }
+        if _is_oauth_token(api_key):
+            headers["authorization"] = f"Bearer {api_key}"
+            headers["anthropic-beta"] = _OAUTH_BETA_FLAG
+        else:
+            headers["x-api-key"] = api_key
+
         if extra_headers:
             for k, v in extra_headers.items():
-                # Don't let a forwarded header overwrite auth/version.
-                if k.lower() in ("x-api-key", "anthropic-version", "content-type", "accept"):
+                kl = k.lower()
+                # Don't let a forwarded header overwrite auth/version/format.
+                if kl in ("x-api-key", "authorization", "anthropic-version", "content-type", "accept"):
                     continue
-                headers[k.lower()] = v
+                # `anthropic-beta` is comma-joined per Anthropic's spec; preserve
+                # the OAuth flag if we set it AND honor any caller-supplied betas.
+                if kl == "anthropic-beta" and kl in headers:
+                    existing = headers[kl]
+                    if v and v not in existing.split(","):
+                        headers[kl] = f"{existing},{v}" if existing else v
+                    continue
+                headers[kl] = v
 
         try:
             async with self._client.stream(

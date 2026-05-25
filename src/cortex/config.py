@@ -35,10 +35,14 @@ class CortexSettings(BaseSettings):
     upstream_timeout_s: float = Field(300.0, description="Long generations need headroom")
     upstream_connect_timeout_s: float = Field(10.0)
 
-    # When True, replace the real AnthropicProvider with ClaudeCliProvider,
-    # which shells out to `claude -p` per request (uses caller's OAuth session
-    # instead of an API key). Used for benchmarks where ANTHROPIC_API_KEY
-    # isn't configured. Adds ~10-20s/call subprocess overhead.
+    # Deprecated as of the OAuth-aware AnthropicProvider: `AnthropicProvider`
+    # now auto-detects `sk-ant-oat...` (Claude OAuth) vs `sk-ant-api...` (classic
+    # API key) per request and switches between `Authorization: Bearer` +
+    # `anthropic-beta: oauth-2025-04-20` and `x-api-key` accordingly. The old
+    # behavior of swapping to the `claude -p` subprocess provider stripped
+    # `req.tools` and made the proxy unusable for agentic callers, so this flag
+    # is now treated as a no-op (the OAuth path is always available; whichever
+    # auth shape the client sends wins). Kept for env-var compatibility.
     use_claude_cli_provider: bool = Field(False)
 
     # --- Auth mode ---
