@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
+This repo is **Limitless** — the engineering project. "Limitless" is the product name; the code is organized as two stacked Python packages (`timegraph` + `cortex`) that predate the rename. Keep using the existing names in code, imports, env vars (`CORTEX_*`, `TG_*`), CLIs (`cortex-serve`, `timegraph-mcp`, `timegraph init`), and the plugin name (`timegraph-cortex`) — those are stable contract surfaces. Call the project Limitless in READMEs, docs, and positioning.
+
 Two stacked packages sharing one venv and one backend (Neo4j + Qdrant + LM Studio):
 
 1. **`src/timegraph/`** — the original capability layer + MCP server. Implements bounded-1-LLM-call retrieval over a temporal property graph. README.md and `bench/` are about this. Console script: `timegraph-mcp` (stdio MCP server). See README for the architecture, benchmark results (MRCR 50/50, GraphWalks 100%, BEAM 54.6%), and the gap-pruning thesis.
